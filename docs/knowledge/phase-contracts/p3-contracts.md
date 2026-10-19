@@ -64,25 +64,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_user_teacher ON sys_user (teacher_id) W
 
 设计迁移草案：`docs/knowledge/designs/0031_identity_indexes.sql`；详细字段、API、权限与流程见 `docs/knowledge/designs/D08-identity-user-provisioning.md`。
 
+D09 设计迁移草案：`docs/knowledge/designs/0032_exchange_import.sql`；固定模板、issue 错误码、一次性报告与导入向导见 `docs/knowledge/designs/D09-batch-import.md`。
+
 ### 2.3 exchange（应用模块支撑表）
 
 ```sql
-CREATE TYPE import_status AS ENUM ('COMPLETED','PARTIAL','FAILED');
+CREATE TYPE import_module AS ENUM ('SEMESTERS','GRADES','CLASSES','SUBJECTS','TEACHERS','ASSIGNMENTS','VENUES');
+CREATE TYPE import_batch_status AS ENUM ('COMPLETED','PARTIAL','FAILED');
 
 import_batch (
   batch_id uuid pk,
-  module text not null,
+  module import_module not null,
   filename text not null,
   size_bytes int not null,
-  total int not null,
+  total int not null,               -- 数据行，不含表头与空行
   success int not null,
-  failed int not null,
-  status import_status not null,
-  errors jsonb not null default '[]', -- 最多保留 1000 条明细
+  failed int not null,              -- 有 ERROR 的去重数据行，不统计 WARNING
+  status import_batch_status not null,
+  errors jsonb not null default '[]', -- ImportIssue[]，最多 1000 条
+  errors_truncated boolean not null default false,
+  error_report_url text null,
+  error_report_downloaded_at timestamptz null,
   operator_id uuid not null,
   operator_name text not null,
   created_at
 );
+-- total = success + failed；COMPLETED=>failed=0；PARTIAL=>success>0 && failed>0；FAILED=>success=0。
+-- 索引：created_at DESC、operator_id+created_at DESC、status+created_at DESC、module+created_at DESC。
 
 CREATE TYPE paper_size AS ENUM ('A4','A3');
 CREATE TYPE paper_orientation AS ENUM ('PORTRAIT','LANDSCAPE');
@@ -218,7 +226,13 @@ print_template (
 - ≤5000 行：逐行校验，合法行提交，非法行跳过；重复键按非法行处理，不做 upsert。
 - 数据库故障 → 整批回滚，批次状态 `FAILED`。
 - 结果返回 `total/success/failed/status/errors/errorReportUrl`；错误含行号、列名、原值、中文原因。
-- 导入提交属七类关键操作，前端二次确认后调用；写 `operation_log`（module=`IMPORT`）。
+- 导入提交属七类关键操作；前端二次确认后调用，multipart 必须携带 `confirm=true`，写 `operation_log`（module=`IMPORT`）。
+- 七类固定模板列、自然键、中文枚举值和错误码对照固定为 `docs/knowledge/designs/D09-batch-import.md` §3/§7；下载模板为 XLSX。
+- 预览返回 `headers/rows(≤20)/totalRows/previewLimit/headerErrors`，零数据库、批次与日志写入。
+- 导入结果返回 `ImportBatch`：`total/success/failed/status/errors/errorsTruncated/errorReportUrl`；issue 含 `rowNo/column/rawValue/code/severity/message`。
+- 文件级拒绝（>20 MB、>5000 行、缺必填列、重复表头、空文件、非 UTF-8）返回 400/413，且不创建批次。
+- 合法行在单一事务中经各域应用服务写入；数据库/基础设施故障回滚全部合法行，再用独立补偿事务写 `FAILED` 批次。
+- 错误报告 CSV 列固定为 `行号,列名,原值,错误码,严重级别,中文原因`，UTF-8 BOM；首次下载后再次请求返回 404。
 
 ### 3.4 导出（D10）
 
