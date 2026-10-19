@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { createAppError } from '../errors/app-error';
 import { healthCheck } from '../db/pool';
+import { fail, ok } from './envelope';
 
 export interface HealthRouterOptions {
   probe?: () => Promise<boolean>;
@@ -18,16 +20,11 @@ export function createHealthRouter(options: HealthRouterOptions = {}): Router {
     }
 
     if (!databaseAvailable) {
-      response.status(503).json({
-        error: {
-          code: 'DATABASE_UNAVAILABLE',
-          message: '数据库暂时不可用，请稍后重试',
-        },
-      });
+      fail(response, createAppError('DATABASE_UNAVAILABLE'));
       return;
     }
 
-    response.json({ data: { status: 'ok', db: true } });
+    ok(response, { status: 'ok', db: true });
   });
 
   return router;
