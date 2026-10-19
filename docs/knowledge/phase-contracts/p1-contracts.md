@@ -176,6 +176,10 @@ walking_group_member (walking_group_id uuid, class_id uuid, primary key (walking
 
 班级名称由服务端生成：`{grade.name}（{serialNo}）班`；序号 1-99 整数。
 
+- 年级名称必须命中 `sys_controlled_vocabulary` 中 `vocab_type=GRADE` 且启用的规范名；自由文本返回 400 `VALIDATION_ERROR`。
+- 班级名称只由服务端生成；请求体传入 `name` 会被拒绝。序号非 1-99 整数（0/100/1.5）返回 400 并提示「须为 1-99 整数」。
+- 年级重命名后，其下班级名称在同一事务内级联重算；仍被班级引用的年级删除返回 409 `REFERENCE_PROTECTED`。
+
 ### 3.4 科目（D02）
 
 | 方法 | 路径 | 说明 |
@@ -185,6 +189,13 @@ walking_group_member (walking_group_id uuid, class_id uuid, primary key (walking
 | PATCH | `/subjects/:id` | 重命名 |
 | PUT | `/subjects/:id/period-rule` | 保存课时规则 |
 | GET | `/controlled-vocabularies?type=SUBJECT` | 受控词表 |
+
+课时规则字段（D05 快照）：`weeklyPeriods`、`consecutivePreference`、`forbiddenSlots`、`timeSlotPreference`、`periodBalanceEnabled`、`amPmBalanceEnabled`、`fixedSlotRuleEnabled`。
+
+- 三开关独立存储，默认 `false`；PUT 请求可省略，缺省即 `false`，启用后作为 D05 软约束输入。
+- 保存前执行 `RuleConflictDetector`：固定时段启用但未选择上午/下午，或禁排覆盖固定时段全部时段，返回 409 `STATE_CONFLICT` 并附具体规则说明；不得静默忽略。
+- 科目名同义词命中返回 409 `DUPLICATE` 且不写入记录；被任课/走班/课次引用的科目删除返回 409 `REFERENCE_PROTECTED`。
+- 查询服务：`ClassQueryService` 输出 `classId/gradeId/gradeName/name/serialNo/headTeacherId/studentCount`；`SubjectQueryService` 输出 `subjectId/name` 与上述规则快照。D05 只能依赖这两个服务，不直接访问 registry 实体或表。
 
 ### 3.5 教师（D03）
 

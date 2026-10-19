@@ -65,13 +65,13 @@ CREATE TABLE semester (
   is_current boolean NOT NULL
 );
 
-CREATE TABLE grade (
+CREATE TABLE IF NOT EXISTS grade (
   grade_id uuid PRIMARY KEY,
   name text NOT NULL UNIQUE,
   sort_order integer NOT NULL
 );
 
-CREATE TABLE class (
+CREATE TABLE IF NOT EXISTS class (
   class_id uuid PRIMARY KEY,
   grade_id uuid NOT NULL REFERENCES grade(grade_id),
   name text NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE class (
   UNIQUE (grade_id, serial_no)
 );
 
-CREATE TABLE subject (
+CREATE TABLE IF NOT EXISTS subject (
   subject_id uuid PRIMARY KEY,
   name text NOT NULL UNIQUE
 );
@@ -114,7 +114,7 @@ CREATE TABLE teaching_assignment (
   exempted_slots jsonb NOT NULL
 );
 
-CREATE TABLE subject_period_rule (
+CREATE TABLE IF NOT EXISTS subject_period_rule (
   rule_id uuid PRIMARY KEY,
   subject_id uuid NOT NULL UNIQUE REFERENCES subject(subject_id),
   weekly_periods integer NOT NULL,

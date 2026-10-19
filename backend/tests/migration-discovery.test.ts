@@ -45,11 +45,24 @@ describe('migration discovery', () => {
     await expect(loadMigrationFiles(directory)).rejects.toBeInstanceOf(MigrationFileError);
   });
 
-  it('rejects sequence gaps', async () => {
+  it('allows reserved numbering gaps while keeping order', async () => {
     const directory = await makeMigrationDir({
       '0001_first.sql': 'SELECT 1;',
       '0003_third.sql': 'SELECT 3;',
     });
-    await expect(loadMigrationFiles(directory)).rejects.toThrow(/连续递增/);
+
+    const migrations = await loadMigrationFiles(directory);
+    expect(migrations.map((migration) => migration.filename)).toEqual([
+      '0001_first.sql',
+      '0003_third.sql',
+    ]);
+  });
+
+  it('rejects duplicate sequence numbers', async () => {
+    const directory = await makeMigrationDir({
+      '0001_first.sql': 'SELECT 1;',
+      '0001_again.sql': 'SELECT 2;',
+    });
+    await expect(loadMigrationFiles(directory)).rejects.toThrow(/序号重复/);
   });
 });

@@ -128,21 +128,21 @@ BEGIN
   -- 2.3 年级
   INSERT INTO grade (grade_id, name, sort_order)
   VALUES ('00000000-0000-4000-8000-000000000104', '七年级', 10)
-  ON CONFLICT (name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   -- 2.4 班级 A/B
   INSERT INTO class (class_id, grade_id, name, serial_no, student_count)
   VALUES
     ('00000000-0000-4000-8000-000000000105', '00000000-0000-4000-8000-000000000104', '七年级（1）班', 1, 40),
     ('00000000-0000-4000-8000-000000000106', '00000000-0000-4000-8000-000000000104', '七年级（2）班', 2, 40)
-  ON CONFLICT (grade_id, serial_no) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   -- 2.5 科目 数学 / 英语
   INSERT INTO subject (subject_id, name)
   VALUES
     ('00000000-0000-4000-8000-000000000107', '数学'),
     ('00000000-0000-4000-8000-000000000108', '英语')
-  ON CONFLICT (name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   -- 2.6 教师 张老师 / 李老师（工号受控 T+数字）
   INSERT INTO teacher (teacher_id, employee_no, name, gender, phone, status)

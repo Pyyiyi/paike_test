@@ -76,14 +76,17 @@ export async function loadMigrationFiles(migrationsDir: string): Promise<Migrati
   }
 
   migrations.sort((left, right) => left.filename.localeCompare(right.filename, 'en'));
-  migrations.forEach((migration, index) => {
-    const expected = index + 1;
-    if (migration.version !== expected) {
+  // 领域卡按预留号段推进（0010/0012/0014...），因此允许序号空洞；
+  // 仍要求严格递增，禁止重复或倒序，保证纯 SQL 迁移只追加。
+  let previousVersion = 0;
+  for (const migration of migrations) {
+    if (migration.version <= previousVersion) {
       throw new MigrationFileError(
-        `迁移序号必须从 0001 连续递增；期望 ${String(expected).padStart(4, '0')}，实际 ${migration.filename}`,
+        `迁移序号必须严格递增；${migration.filename} 的序号不大于前一个迁移`,
       );
     }
-  });
+    previousVersion = migration.version;
+  }
 
   return migrations;
 }

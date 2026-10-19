@@ -6135,27 +6135,25 @@ components:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
           type: array
+          default: []
           items:
             $ref: '#/components/schemas/Slot'
         timeSlotPreference:
           $ref: '#/components/schemas/TimeSlotPreference'
         periodBalanceEnabled:
           type: boolean
+          default: false
         amPmBalanceEnabled:
           type: boolean
+          default: false
         fixedSlotRuleEnabled:
           type: boolean
+          default: false
         version:
           type: integer
           minimum: 0
       required:
       - weeklyPeriods
-      - consecutivePreference
-      - forbiddenSlots
-      - timeSlotPreference
-      - periodBalanceEnabled
-      - amPmBalanceEnabled
-      - fixedSlotRuleEnabled
     TeacherCreateRequest:
       type: object
       properties:
