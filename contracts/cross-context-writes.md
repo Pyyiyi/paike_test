@@ -33,7 +33,7 @@
 | T1 单聚合本地事务 | 单上下文、单聚合主数据增删改 | 业务行 + 同一事务内的操作日志/安全审计 + outbox；失败全部回滚 |
 | T2 编排型强一致事务 | 学期存档、学期切换、教师退校联动、教师开通账号 | 由一个应用服务开启事务，顺序调用各域导出的 command/query service；任一失败整笔回滚 |
 | T3 引用检查 + 本地写入 | 删除保护、引用关系配置 | 先在同一事务内调用各域 query service 检查引用，再写本域；领域外键是最终完整性兜底 |
-| T4 逐行导入事务 | 批量导入 | 每个合法数据行使用独立事务写入目标上下文；批次进度单独提交；基础设施故障将批次标记 `FAILED`，不得声称整批成功 |
+| T4 导入批次事务 | 批量导入 | 先全量预校验；所有合法行、目标 outbox、批次终态、一次 `IMPORT` 日志与完成事件在同一事务提交；每个数据行用 savepoint 隔离业务校验错误；数据库/基础设施故障回滚全部合法行，再用独立补偿事务写 `FAILED` 批次 |
 | T5 只读编排 + 审计 | 导出、打印预览/渲染、课表视图、统计 | 读取各域 query service，不写业务表；导出/打印只写 `sys_audit_log`，打印模板维护按 T1 |
 
 所有写事务必须满足：
@@ -41,7 +41,7 @@
 1. 乐观锁失败时零业务写入、零业务日志、零 outbox。
 2. 操作日志与业务写入同事务；日志失败则业务回滚。
 3. outbox 与业务写入同事务；投递失败留在 outbox 重试，不回滚已提交业务。
-4. 批量调课、发布/覆盖、存档、切换、导入提交均遵守「整批全成或全不成」；导入按 T4 的行级边界例外。
+4. 批量调课、发布/覆盖、存档、切换、导入提交均遵守「整批全成或全不成」；导入的业务校验错误按行跳过，数据库/基础设施故障回滚全部合法行。
 
 ---
 
@@ -69,8 +69,8 @@
 | XW-18 | 只本次忽略冲突 | timetable | `conflict_detail.resolution='IGNORED_ONCE'`、`timetable_plan.has_manual_exemption`、`conflict_ignore`、`operation_log`、`sys_outbox_event` | 无跨域写；读取冲突可归因配置 | `bc.timetable.conflict.ignored-once`；操作日志 | T1；不可忽略类型先拒绝，配置表零写入 |
 | XW-19 | 批量调课/撤销/重做 | timetable | `lesson`、`lesson_class`、`timetable_plan.version`、`adjustment_history`、`operation_log`、`sys_outbox_event` | 只读当前方案与锁定状态 | `bc.timetable.lesson.moved`；操作日志 `ADJUST` | T1；整批校验后写入；任一冲突、锁定或存档状态不满足则整组零写入 |
 | XW-20 | 预排课次/锁定/解锁 | timetable | `lesson`、`lesson_class`、`timetable_plan.version`、`operation_log` | 只读主数据与方案状态 | 操作日志 | T1；非草稿或锁定冲突时零写入 |
-| XW-21 | 导入单个合法数据行 | exchange → registry/resource | 目标上下文业务表、目标上下文 outbox；本行错误以批次进度记录 | 调用 registry/resource 对应应用服务；不允许直接 DML | `bc.exchange.import.completed` 在批次完成时一次发布 | T4；每行独立事务；重复键按非法行；未知列忽略；日志只在导入提交时写一次 `IMPORT` |
-| XW-22 | 导入批次收口 | exchange | `import_batch` 终态与错误摘要；`operation_log`；`sys_outbox_event` | 汇总逐行结果 | `bc.exchange.import.completed`；操作日志 `IMPORT` | 批次收口事务；基础设施故障时批次 `FAILED`，已成功行不回滚但明确返回部分结果 |
+| XW-21 | 导入合法数据行集合 | exchange → registry/resource | 目标上下文业务表、目标上下文 outbox、`import_batch` 终态；行错误汇总到批次 | 调用 registry/resource 对应应用服务；不允许直接 DML | `bc.exchange.import.completed` 在批次收口时一次发布 | T4；合法行同一事务提交，每行 savepoint 隔离业务错误；重复键按非法行；未知列忽略；日志只在导入提交时写一次 `IMPORT` |
+| XW-22 | 导入批次收口 | exchange | `import_batch` 终态与错误摘要；`operation_log`；`sys_outbox_event` | 汇总逐行结果 | `bc.exchange.import.completed`；操作日志 `IMPORT` | 批次收口与合法行业务写入同一事务；数据库/基础设施故障全部合法行回滚，再用补偿事务写 `FAILED` 批次 |
 | XW-23 | Excel 导出 | exchange | 仅 `sys_audit_log` | registry/resource/timetable/statistics query services | `bc.exchange.export.completed`（审计/通知） | T5；不写业务表、不写 `operation_log`；文件不落库 |
 | XW-24 | 打印模板维护 | exchange | `print_template`、`sys_audit_log`；必要时 `operation_log` | 无跨域写 | 安全审计 | T1；预设模板不可删；版本冲突零写入 |
 | XW-25 | 打印预览/渲染 | exchange | 仅 `sys_audit_log` | timetable/registry/statistics query services 读取同一数据源 | `bc.exchange.print.rendered` | T5；预览与 render 输出同一 PDF；一次性签名 token 60 秒 |
@@ -106,10 +106,12 @@
 
 ### 4.4 导入
 
-- 单行边界：一行合法数据的目标业务写入、目标 outbox（如有）与行结果共同提交。
-- 批次边界：批次终态、错误摘要、一次 `IMPORT` 操作日志和一次完成事件在收口事务中写入。
-- `PARTIAL` 表示部分行成功；`FAILED` 表示基础设施故障或文件级拒绝。
-- 超 5000 行或 20 MB 时文件级拒绝，零行写入。
+- 预校验边界：文件级上限、编码、表头与全量行业务校验先完成；此时零业务写入。
+- 单行边界：每行用 savepoint 调用目标领域应用服务；业务错误回滚到 savepoint 并记为 issue，其他合法行继续。
+- 批次边界：合法行业务写入、目标 outbox、批次终态、一次 `IMPORT` 操作日志和一次完成事件在同一事务提交。
+- 数据库/基础设施故障：回滚整个业务事务；随后用独立补偿事务写 `FAILED` 批次（`success=0`、`failed=total`），不得声称部分成功。
+- `COMPLETED` 表示全部行成功；`PARTIAL` 表示部分成功；`FAILED` 表示零成功（全部行非法或基础设施故障）。
+- 超 5000 行、>20 MB、缺必填列、空文件或非 UTF-8 文件级拒绝，零业务/批次写入；错误报告一次性下载。
 
 ### 4.5 删除保护
 

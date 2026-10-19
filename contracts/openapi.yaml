@@ -4010,6 +4010,12 @@ paths:
         description: 路径参数
         schema:
           $ref: '#/components/schemas/ImportModule'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportPreviewRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4050,6 +4056,12 @@ paths:
         description: 路径参数
         schema:
           $ref: '#/components/schemas/ImportModule'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportExecuteRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4072,10 +4084,10 @@ paths:
           $ref: '#/components/responses/Conflict'
         '413':
           $ref: '#/components/responses/TooLarge'
-        '422':
-          $ref: '#/components/responses/ImportRowError'
         '500':
           $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /import/batches/{batchId}:
     get:
       tags:
@@ -4629,6 +4641,26 @@ components:
       - UNDO
       - REDO
       x-enum-name: AdjustmentAction
+    ImportPreviewRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+      - file
+    ImportExecuteRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        confirm:
+          type: boolean
+          description: 前端二次确认后必须为 true
+      required:
+      - file
+      - confirm
     ImportModule:
       type: string
       enum:
@@ -4640,6 +4672,39 @@ components:
       - ASSIGNMENTS
       - VENUES
       x-enum-name: ImportModule
+    ImportIssueSeverity:
+      type: string
+      enum:
+      - ERROR
+      - WARNING
+      x-enum-name: ImportIssueSeverity
+    ImportErrorCode:
+      type: string
+      enum:
+      - REQUIRED_HEADER_MISSING
+      - DUPLICATE_HEADER
+      - UNKNOWN_COLUMN
+      - UNSUPPORTED_FORMAT
+      - UNSUPPORTED_ENCODING
+      - EMPTY_FILE
+      - PARSE_ERROR
+      - ROW_LIMIT_EXCEEDED
+      - FILE_TOO_LARGE
+      - REQUIRED_VALUE_MISSING
+      - INVALID_TYPE
+      - INVALID_FORMAT
+      - INVALID_ENUM
+      - INVALID_DATE
+      - VALUE_OUT_OF_RANGE
+      - REFERENCE_NOT_FOUND
+      - DUPLICATE_KEY
+      - CROSS_FIELD_INVALID
+      - INVALID_SLOT
+      - CONTROLLED_VOCABULARY_MISMATCH
+      - DATABASE_FAILURE
+      - TEMPLATE_NOT_FOUND
+      - ERROR_REPORT_CONSUMED
+      x-enum-name: ImportErrorCode
     ImportBatchStatus:
       type: string
       enum:
@@ -5761,10 +5826,16 @@ components:
           type:
           - string
           - 'null'
+        code:
+          $ref: '#/components/schemas/ImportErrorCode'
+        severity:
+          $ref: '#/components/schemas/ImportIssueSeverity'
         message:
           type: string
       required:
       - rowNo
+      - code
+      - severity
       - message
     ImportBatch:
       type: object
@@ -5794,6 +5865,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ImportError'
+        errorsTruncated:
+          type: boolean
         operatorId:
           type: string
           format: uuid
@@ -5816,9 +5889,11 @@ components:
       - failed
       - status
       - errors
+      - errorsTruncated
       - operatorId
       - operatorName
       - createdAt
+      - errorReportUrl
     ImportPreview:
       type: object
       properties:
@@ -5828,9 +5903,17 @@ components:
             type: string
         rows:
           type: array
+          maxItems: 20
           items:
             type: array
             items: {}
+        totalRows:
+          type: integer
+          minimum: 0
+        previewLimit:
+          type: integer
+          enum:
+          - 20
         headerErrors:
           type: array
           items:
@@ -5838,6 +5921,8 @@ components:
       required:
       - headers
       - rows
+      - totalRows
+      - previewLimit
       - headerErrors
     PrintTemplate:
       type: object
@@ -7829,12 +7914,6 @@ components:
             $ref: '#/components/schemas/ErrorEnvelope'
     TooLarge:
       description: 上传文件超过 20 MB
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    ImportRowError:
-      description: 导入数据行校验失败
       content:
         application/json:
           schema:
