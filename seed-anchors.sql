@@ -81,13 +81,13 @@ ON CONFLICT (vocab_type, canonical_name) DO NOTHING;
 
 DO $$
 BEGIN
-  IF to_regclass('public.schedule_template_version') IS NULL
-     OR to_regclass('public.semester') IS NULL
-     OR to_regclass('public.class') IS NULL
-     OR to_regclass('public.teacher') IS NULL
-     OR to_regclass('public.subject') IS NULL
-     OR to_regclass('public.venue') IS NULL
-     OR to_regclass('public.teaching_assignment') IS NULL THEN
+  IF to_regclass('schedule_template_version') IS NULL
+     OR to_regclass('semester') IS NULL
+     OR to_regclass('class') IS NULL
+     OR to_regclass('teacher') IS NULL
+     OR to_regclass('subject') IS NULL
+     OR to_regclass('venue') IS NULL
+     OR to_regclass('teaching_assignment') IS NULL THEN
     RAISE NOTICE '领域表尚未创建，跳过 D15 锚点（第二节）。领域卡完成后可重复执行本文件。';
     RETURN;
   END IF;
