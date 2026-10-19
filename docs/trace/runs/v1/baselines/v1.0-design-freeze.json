@@ -1,0 +1,85 @@
+{
+  "baseline": "v1.0-design-freeze",
+  "status": "frozen",
+  "date": "2026-10-19",
+  "anchor": {
+    "remote": "origin",
+    "branch": "main",
+    "commit": "3a93100fc64caae42bc7b206609bff745d86de08"
+  },
+  "contract_version": "1.0.0",
+  "registered_tag": "v1.0-design-freeze",
+  "tag_created": false,
+  "contracts": {
+    "openapi.yaml": "51da69a12d23ab7a46a4e75b62191002ceffa1be5c16e207cf7d6d3842954818",
+    "schema.sql": "9ebae4151e9f1b67d35c9eafa8d41d311b5d19a54d9aca0e118360abc0100239",
+    "events.yaml": "b117a6fd9a89ae51b66b1d340d9483cd7026dca08f517eab652ef43897debbf1",
+    "naming.yaml": "f3f1e34324b6d9f4471fc6a879644abb3e9e1c0a50d7f343dab64fc96dfa2ec2",
+    "routes.yaml": "7a49fe41f058aacb9a0f7f8f1a8ca4106d2240e5a678fe0a41662ebdd421a5ad",
+    "cross-context-writes.md": "24adcd3f25bd7ae59e0dc5d8f42955db08b04524f9cc27783f62b8a7a17f5afc"
+  },
+  "contracts_set_sha256": "9dd68818d43754d94e261ab064474274ea16d849f306b3af9d2e86ca276cb92b",
+  "design_documents": {
+    "spac.md": {
+      "path": "docs/trace/runs/v1/spac.md",
+      "declared_version": "v1 / design 2026-10-19",
+      "sha256": "b1e631239a60081ef3a54e9281526b49676054c3c40f2999c3d64e4cd9779fd7",
+      "frozen_version": "v1.0-design-freeze"
+    },
+    "agent_plane.md": {
+      "path": "docs/trace/runs/v1/agent_plane.md",
+      "declared_version": "v1 / design 2026-10-19",
+      "sha256": "a13480a8acd3ab3cf7e8562d1b62b7d6dc19ecf8fed67d9dafc17f5bc86fe6d8",
+      "frozen_version": "v1.0-design-freeze"
+    },
+    "issues.yaml": {
+      "path": "docs/trace/runs/v1/issues.yaml",
+      "declared_version": "version: 1",
+      "sha256": "e66e405cd4c8d8b10a07b65e5d60b93a02b947042f0941322f7d8bcc21665b58",
+      "frozen_version": "v1.0-design-freeze"
+    }
+  },
+  "input_snapshot": {
+    "root": "input/v1.0",
+    "excluded": [
+      ".DS_Store"
+    ],
+    "algorithm": "SHA-256 of UTF-8 lines `<posix-relative-path>  <file-sha256>\\n`, sorted by path",
+    "file_count": 32,
+    "sha256": "3bd76e0595b6e9f8baafa68e64b027e35289a76ae212709b6d5c5af6a7b569fa",
+    "files": {
+      "DDD/aggregates.json": "3143eeca05e2b79dc8c4b4d7a6e80680c42babb360abd45b998844af0405e7d2",
+      "DDD/applicationServices.json": "bd133946a9b46859d06bbb22850979945f011d067f83aed7e3147c3087965f62",
+      "DDD/boundedContexts.json": "556d253f892a644092526312d96b08e4b7e9977dd12824d4acbbb66ed448b55d",
+      "DDD/commands.json": "1136350f20dd3c5164bef6168bd9f20d0c7a4786c9994c17ab91bf03432210f5",
+      "DDD/contextMap.json": "a72704ce023aac3bf42b2796e47f69ef3d61eecc6ff6364ec5b40ff60189bc02",
+      "DDD/domainEvents.json": "07310cd19d888bf63f77740390f11270c67696551a29c5bb62422e79eac94f71",
+      "DDD/domainServices.json": "9ccf1717695230108f270f89d3cbd2a97932aaa2fb550edee0529dc112e80d12",
+      "DDD/integrationEvents.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "DDD/meta.json": "c07c90be369f9ee7099f14452b7102c6c3eb5ea5c5b6f7dce3f3d50dbf6ad3e9",
+      "DDD/repositories.json": "11e71e92a9fe58444f4f221f5f003a6f97a0e77199273f10f12723eb8550b949",
+      "DDD/rules.json": "ad642c2cf13a0b07de86a3ca25c0400ba0ac3b9caba4cf7757b987cace794d9c",
+      "DDD/stateMachines.json": "0a23fc8d50dbdbc4705b5d13602bfa40bbf4efd0e209e5188a40f7dbd15f1ffe",
+      "DDD/traceabilityMatrix.json": "3966e45dc560c68635fad1c609d7201be8631f8b561e8362854ad6f8e9c48250",
+      "DDD/ubiquitousLanguage.json": "c405a358c44cfa0287851229a0d5b712af9ed4e6ce8bddbf2850897f74277743",
+      "PRD/12-V1.0封版PRD-修改记录.md": "e402d6500bdf8404e12d712041df24146b1d4da7437f2d01ea3f77e1c1473b35",
+      "PRD/12-V1.0封版PRD.md": "cbbf4a9be1a6136ee4bed511c9d6a3f901f21d0ddc4f14b2e802595e4bc90d10",
+      "PRD/13-V1.0封版PRD人工核对文档-修改记录.md": "029e1ebf15893a9fea345e2aeda52689751517b5f81f36d650d8adfb2bced984",
+      "PRD/13-V1.0封版PRD人工核对文档.md": "a0f49d02dc1698bc50a7165f1fe10dae240b2b4ba0618dc00d604c74452f9ca4",
+      "测试用例/09-V1.0测试用例-修改记录.md": "890ec57d8b616d48c7688cff614cacf7c0e4d3a4ebdaf51499634f006f760f95",
+      "测试用例/09-V1.0测试用例.md": "94bdce788def2db469bbb6e17ca89e7d5c9074e078da45d377071267535c6931",
+      "需求梳理/04-V1.0详细需求清单-修改记录.md": "4c9c804d655c4aace898a6af310f465b4a9c56b448f9da580625e35d88536439",
+      "需求梳理/04-V1.0详细需求清单.md": "760c124481e72703afe9141a26b19a80f410c6d01519633711b5c803d778c5a6",
+      "需求梳理/05-V1.0需求可测性审查报告-修改记录.md": "682e25fcd6b9ea3e1e7a649b0ded778cdbcf8b01eaa4dd0865d852f2df5502b6",
+      "需求梳理/05-V1.0需求可测性审查报告.md": "6a363c0221f019b27c8047b7808008c0602db27a443e4132da86f4e739309fe6",
+      "需求梳理/06-V1.0高保真交互原型-修改记录.md": "c5cc8369cc3d2a51d5c87fbe99d8c5954aa1b38bf37b872d26949058f681c7da",
+      "需求梳理/06-V1.0高保真交互原型.html": "cccc19efc0a5713e0224afa90bc85f9cdee652b81080749f2dcfe7dea6b6f064",
+      "需求梳理/07-V1.0原型页面对齐校验报告-修改记录.md": "10f5c8ce8337b8e9139050cb849be6b526833be2b5ee085b41c2c5f41b5782b8",
+      "需求梳理/07-V1.0原型页面对齐校验报告.md": "9153f8df83ba44b2b574ddebe71d4b82d63d7b4c7f7fc0543a1c8fa47071bd51",
+      "需求梳理/10-V1.0交叉验证报告-修改记录.md": "52e49ce75436956adfc48f50a0728dbdb17b7cb644aaf3aca8dcac5bfd17c393",
+      "需求梳理/10-V1.0交叉验证报告.md": "97b33e52807daba6d449c53a2ce0df4716139d390bccdf459a8b61e497d655e7",
+      "需求梳理/11-V1.0人工核对文档-修改记录.md": "68b5286bdeb2416bca239cc54e7bf0395116f77daf18370b5312445d3c9abe06",
+      "需求梳理/11-V1.0人工核对文档.md": "2329d54e4eca1134eda3d7175b043c40bfecbec93697e882da997d8f9c7b36a8"
+    }
+  }
+}
