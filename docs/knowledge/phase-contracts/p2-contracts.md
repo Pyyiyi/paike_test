@@ -359,6 +359,7 @@ DRAFT ──逻辑删除（仅未被引用且非 ARCHIVED）──▶ deleted
 {
   "version": 12,
   "unitId": "uuid",
+  "confirm": true,
   "operations": [
     {
       "lessonId": "uuid",
@@ -382,11 +383,11 @@ DRAFT ──逻辑删除（仅未被引用且非 ARCHIVED）──▶ deleted
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/timetables?semesterId=&dimension=&objectId=&parity=` | 五视图统一入口 |
+| GET | `/timetables?semesterId=&dimension=&objectId=&planId=&unitType=&parity=` | 五视图统一入口 |
 | GET | `/my/timetable?semesterId=&parity=` | 教师本人课表 |
 | GET | `/my/classes?semesterId=` | 教师关联班级（任课 ∪ 班主任） |
 | GET | `/my/classes/:classId/timetable?semesterId=&parity=` | 关联班级课表 |
-| GET | `/idle-slots?semesterId=&dimension=TEACHER\|CLASS&objectId=&parity=` | 空闲时段 |
+| GET | `/idle-slots?semesterId=&dimension=TEACHER\|CLASS&objectId=&planId=&parity=` | 空闲时段 |
 | GET | `/my/idle-slots?semesterId=&parity=` | 教师本人空闲 |
 
 `dimension ∈ CLASS / TEACHER / SCHOOL / VENUE / ASSIGNMENT`。
@@ -424,7 +425,11 @@ DRAFT ──逻辑删除（仅未被引用且非 ARCHIVED）──▶ deleted
 - 五视图共享同一查询服务与同一数据源（A-21）。
 - 教师请求非本人对象 → `403 FORBIDDEN`；前端隐藏不作为安全边界。
 - `parity=ODD` 展示 `ALL+ODD`，`EVEN` 展示 `ALL+EVEN`；`ALL` 展示全部并按周次标签区分。
-- 空闲槽位 = 模板开放槽位 − 该对象已占用槽位；与课表互补（TC-AT-011）。
+- `planId` 可选：传值时必须是该学期 DRAFT/PUBLISHED 方案；省略时优先 `PUBLISHED`，否则最新 `DRAFT`。
+- `unitType` 仅 `dimension=ASSIGNMENT` 必填；常规任课/合班/走班分别传 `ASSIGNMENT`/`COMBINED_CLASS`/`WALKING_GROUP`。
+- `/timetables` 与 `/idle-slots` 允许 `TEACHER` 调用但服务端做数据范围过滤：教师仅本人教师视图、关联班级视图和本人空闲；其他对象/维度 `403 FORBIDDEN`。
+- `adjustments` 请求必须携带 `confirm=true`；未确认或 `false` 返回 `400 VALIDATION_ERROR`，零写入。
+- 空闲槽位 = 模板开放槽位 − 该对象已占用槽位；按单双周展开后严格互补（TC-AT-011）。
 
 ### 4.4 统计
 
