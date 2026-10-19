@@ -76,14 +76,11 @@ export async function loadMigrationFiles(migrationsDir: string): Promise<Migrati
   }
 
   migrations.sort((left, right) => left.filename.localeCompare(right.filename, 'en'));
-  migrations.forEach((migration, index) => {
-    const expected = index + 1;
-    if (migration.version !== expected) {
-      throw new MigrationFileError(
-        `迁移序号必须从 0001 连续递增；期望 ${String(expected).padStart(4, '0')}，实际 ${migration.filename}`,
-      );
-    }
-  });
+  if (migrations[0]?.version !== 1) {
+    throw new MigrationFileError('迁移序号必须从 0001 开始');
+  }
+  // Cards reserve non-overlapping migration ranges (for example 0010-0015).
+  // Gaps are intentional; filenames still execute in strict numeric order.
 
   return migrations;
 }

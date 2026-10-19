@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS sys_controlled_vocabulary (
   is_active      boolean     NOT NULL DEFAULT true,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_vocab_type CHECK (vocab_type IN ('SUBJECT', 'GRADE', 'VENUE', 'SUBJECT_SYNONYM')),
+  CONSTRAINT ck_vocab_type CHECK (vocab_type IN ('SUBJECT', 'GRADE', 'VENUE', 'SUBJECT_SYNONYM', 'COMBINED_CLASS', 'WALKING_GROUP')),
   CONSTRAINT ck_vocab_synonym CHECK (
     (vocab_type = 'SUBJECT_SYNONYM' AND synonym_of IS NOT NULL)
     OR (vocab_type <> 'SUBJECT_SYNONYM')
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS venue (
   venue_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name            text NOT NULL,
   type            venue_type NOT NULL,
-  capacity        integer NOT NULL CHECK (capacity >= 0),
+  capacity        integer NOT NULL CHECK (capacity >= 1),
   status          venue_status NOT NULL DEFAULT 'AVAILABLE',
   version         integer NOT NULL DEFAULT 1,
   created_at      timestamptz NOT NULL DEFAULT now(),
@@ -452,15 +452,17 @@ CREATE TABLE IF NOT EXISTS combined_class (
   combined_class_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name              text NOT NULL,
   teacher_id        uuid NOT NULL REFERENCES teacher(teacher_id),
-  venue_id          uuid NULL REFERENCES venue(venue_id),
-  period_constraint jsonb NOT NULL DEFAULT '{}'::jsonb,
+  venue_id          uuid NOT NULL REFERENCES venue(venue_id),
+  period_constraint jsonb NOT NULL DEFAULT '{"slots":[]}'::jsonb,
   version           integer NOT NULL DEFAULT 1,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
-  deleted_at        timestamptz NULL
+  deleted_at        timestamptz NULL,
+  CONSTRAINT ck_combined_period_object CHECK (jsonb_typeof(period_constraint) = 'object')
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_combined_class_name_active ON combined_class (lower(name)) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_combined_class_teacher ON combined_class (teacher_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_combined_class_venue ON combined_class (venue_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS combined_class_member (
   combined_class_id uuid NOT NULL REFERENCES combined_class(combined_class_id) ON DELETE CASCADE,
@@ -481,7 +483,9 @@ CREATE TABLE IF NOT EXISTS walking_group (
   updated_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_walking_group_name_active ON walking_group (lower(name)) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_walking_group_subject_teacher ON walking_group (subject_id, teacher_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_walking_group_venue ON walking_group (venue_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS walking_group_member (
   walking_group_id  uuid NOT NULL REFERENCES walking_group(walking_group_id) ON DELETE CASCADE,
@@ -560,6 +564,7 @@ CREATE TABLE IF NOT EXISTS lesson (
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_weekday_period ON lesson (plan_id, weekday, period);
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher ON lesson (plan_id, teacher_id);
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue ON lesson (plan_id, venue_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_unit ON lesson (unit_type, unit_id);
 
 CREATE TABLE IF NOT EXISTS lesson_class (
   lesson_id  uuid NOT NULL REFERENCES lesson(lesson_id) ON DELETE CASCADE,
@@ -586,6 +591,7 @@ CREATE TABLE IF NOT EXISTS unscheduled_lesson (
   CONSTRAINT ck_unscheduled_actions_array CHECK (jsonb_typeof(suggested_actions) = 'array')
 );
 CREATE INDEX IF NOT EXISTS idx_unscheduled_lesson_plan ON unscheduled_lesson (plan_id);
+CREATE INDEX IF NOT EXISTS idx_unscheduled_unit ON unscheduled_lesson (unit_type, unit_id);
 
 CREATE TABLE IF NOT EXISTS conflict_detail (
   conflict_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),

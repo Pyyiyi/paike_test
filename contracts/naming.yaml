@@ -899,11 +899,12 @@ fieldDictionary:
     venueId:
       dbColumn: venue_id
       apiType: string
-      nullable: true
+      nullable: false
     classIds:
       dbColumn: class_ids
       apiType: array<string>
       nullable: false
+      note: logical projection from combined_class_member; sorted UUIDs on read
     periodConstraint:
       dbColumn: period_constraint
       apiType: object
@@ -937,6 +938,7 @@ fieldDictionary:
       dbColumn: class_ids
       apiType: array<string>
       nullable: false
+      note: logical projection from walking_group_member; sorted UUIDs on read
     version:
       dbColumn: version
       apiType: integer
