@@ -24,10 +24,11 @@ backend/src/modules/<context>/
     └── <aggregate>.events.ts
 ```
 
-### 1.1 `index.ts`
+### 1.1 `index.ts`（可选）
+
+`index.ts` 仅用于本域内部聚合导出，**不是路由注册表**。Hub 直接扫描 `<context>.router.ts`，新增领域不得修改 Hub 或追加任何中心清单。
 
 ```ts
-export { registryRouter } from './registry.router';
 export const contextName = 'registry';
 ```
 
@@ -52,8 +53,17 @@ registryRouter.post(
 );
 ```
 
+路由文件必须且只能选择一种导出约定：
+
+- `export const router = Router()`；
+- `export default Router()`；
+- `export const registryRouter = Router()`（文件名前缀为 `registry`）；
+- `export function createRouter(context): Router | null | Promise<Router | null>`，用于依赖运行时注入或需要条件挂载的模块。返回 `null` 表示本进程不挂载该路由。
+
 规则：
 
+- 文件必须位于 `modules/<context>/<context>.router.ts`，文件名必须与目录名一致。
+- Hub 将路由挂载到 `/api/v1`；域需要额外前缀时由路由文件自行声明，例如认证模块内部挂载 `/auth`。
 - 路由文件只做装配；不得写 SQL、业务判断。
 - 所有处理器经 `asyncHandler` 包装。
 - 所有写路由经 `requireAdmin`（教师端只读路由除外）与 CSRF 中间件。
@@ -236,31 +246,29 @@ export function useSemesters() {
 
 ### 3.1 后端路由 Hub
 
-```ts
-// backend/src/modules/index.ts
-import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import type { Router } from 'express';
+实现文件：`backend/src/modules/index.ts`。
 
-export function registerModuleRouters(app: Router) {
-  const modulesDir = __dirname;
-  for (const entry of readdirSync(modulesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const mod = require(join(modulesDir, entry.name)) as { router: Router };
-    if (mod.router) app.use('/api/v1', mod.router);
-  }
-}
-```
+- 使用 `fast-glob` 扫描 `modules/*/*.router.ts`，按绝对路径字典序加载，保证挂载顺序稳定。
+- 扫描扩展名跟随当前运行文件（源码/`tsx` 为 `.ts`，构建产物为 `.js`）。
+- 每个文件动态加载并校验上下文目录、文件名与 Router 导出；不维护逐域 import 清单。
+- 挂载统一前缀为 `/api/v1`。`createRouter(context)` 返回 `null` 时跳过；认证模块在未注入 `AuthRuntime` 时即走此分支。
+- 启动日志格式：`[hub] 模块路由扫描完成：发现 N 个文件，挂载 M 个，耗时 Xms`。
+- 接入步骤：新建 `modules/<context>/<context>.router.ts` → 按上述四种约定之一导出 Router → 重启服务；不得修改 `app.ts` 或 Hub。
 
-> 实际实现使用显式静态 import 或 `fast-glob`；关键是**新增域不需要修改 Hub 文件**。
+扫描预算与实测（单模块骨架，2026-10-19）：`tsx` 冷启动含首次 TypeScript 动态加载，三次启动样本为 `55.46ms`、`147.73ms`、`258.19ms`（受模块缓存与机器负载影响）；同进程热扫描为 `1.58ms`–`4.60ms`；构建产物 `npm start` 为 `19.22ms`。预算为冷启动 `<500ms`、热扫描 `<20ms`；新增领域后以启动日志实测为准。
 
 ### 3.2 前端路由 Hub
 
+实现文件：`frontend/src/router/index.ts` 与 `frontend/src/router/route-registry.ts`。
+
 ```ts
-// frontend/src/router/index.ts
-const modules = import.meta.glob('../views/*/routes.ts', { eager: true });
-const domainRoutes = Object.values(modules).flatMap((m: any) => m[/* 导出的数组 */]);
+const modules = import.meta.glob<DomainRouteModule>('../views/*/routes.ts', { eager: true });
+export const domainRoutes = collectDomainRoutes(modules);
 ```
+
+- Vite 在构建期扫描 `views/*/routes.ts`，按文件路径稳定排序后合并导出的 `routes` 数组。
+- 每个文件必须导出 `routes: RouteRecordRaw[]`；缺失导出、重复路由名或重复绝对路径会抛出包含文件名与冲突来源的错误。
+- 接入步骤：新建 `views/<context>/routes.ts` → 导出 `routes` → 重启/构建；不得修改 `frontend/src/router/index.ts` 的中心清单。
 
 ### 3.3 导航 Hub
 
@@ -276,6 +284,23 @@ export const ADMIN_NAV = [
 > 新增域只在自身 `routes.ts` 声明 `meta.nav`，导航由约定式扫描汇总。
 
 ---
+
+### 3.4 上下文边界门禁
+
+`eslint.config.mjs` 通过 `import/no-restricted-paths` 执行以下规则；域列表由 `backend/src/modules` 目录自动生成，新增上下文会自动纳入：
+
+1. `backend/src/shared/**` 不得 import `backend/src/modules/**`。
+2. `frontend/src/shared/**` 不得 import `frontend/src/views/**`。
+3. 任一 `backend/src/modules/<context>/**` 不得直接 import 其他上下文的 `*.repository.ts` 或 `*.domain.ts`；跨域协作只允许应用服务、查询服务、DTO 或领域事件。
+
+违规输出同时包含 ESLint 正在检查的文件和实际 import 路径，例如：
+
+```text
+backend/src/shared/boundary-violation.ts
+  Unexpected path "../modules/auth/auth.router" imported in restricted zone. ...
+```
+
+规则样例测试位于 `backend/tests/boundary-lint.test.ts`；自动装配测试位于 `backend/tests/module-router.test.ts` 与 `frontend/src/router/route-registry.test.ts`。PR 前必须通过 `npm run lint` 与 `npm run typecheck`。
 
 ## 4. 测试模板
 
@@ -315,6 +340,8 @@ describe('SemesterService.create', () => {
 每张领域卡完成时逐项确认：
 
 - [ ] 路由文件存在且被 Hub 自动发现
+- [ ] 未修改 `app.ts`、`modules/index.ts` 或 `frontend/src/router/index.ts` 的中心注册清单
+- [ ] 领域间未直接 import 其他上下文 repository/domain，`npm run lint` 通过
 - [ ] 每个用例一个事务
 - [ ] 乐观锁 `version` 生效，409 零写入
 - [ ] 引用保护与状态守卫有测试

@@ -82,10 +82,11 @@ teacher (
 teaching_assignment (
   assignment_id uuid pk, teacher_id uuid fk, subject_id uuid fk,
   class_id uuid fk, venue_id uuid null fk,
-  weekly_periods int,
+  weekly_periods int check (weekly_periods >= 1),
   consecutive_preference consecutive_preference_enum,
   forbidden_slots jsonb, exempted_slots jsonb,
-  version int, deleted_at
+  version int, deleted_at,
+  unique (teacher_id, class_id, subject_id) where deleted_at is null
 )
 
 venue (
@@ -194,11 +195,20 @@ walking_group_member (walking_group_id uuid, class_id uuid, primary key (walking
 | POST | `/teachers` | 新增；`provisionAccount?: boolean` |
 | PATCH | `/teachers/:id` | 编辑（工号不可改） |
 | POST | `/teachers/:id/deactivate` | 退校（保留主数据、停用账号） |
-| DELETE | `/teachers/:id` | 引用保护 |
+| POST | `/teachers/:id/restore` | 恢复在职（不自动启用账号） |
+| DELETE | `/teachers/:id?version=` | 引用保护；无引用时逻辑删除 |
 | GET | `/teachers/:id/assignments` | 任课列表 |
 | POST | `/teaching-assignments` | 新增任课 |
 | PATCH | `/teaching-assignments/:id` | 编辑 |
-| DELETE | `/teaching-assignments/:id` | 删除 |
+| DELETE | `/teaching-assignments/:id?version=` | 逻辑删除 |
+
+教师与任课规则：
+
+- 工号匹配 `^T[0-9]+$` 且全表唯一，创建后不可编辑。
+- `ACTIVE -> LEFT` 仅经退校动作，`LEFT -> ACTIVE` 仅经恢复动作；账号状态独立，恢复不自动启用账号。
+- 删除与退校分离；有任课、班主任、账号等引用时删除返回 `REFERENCE_PROTECTED` 且零写入。
+- `weeklyPeriods >= 1`；任课不限制年级，同一教师可跨班跨年级多条任课。
+- `forbiddenSlots`（业务禁排）与 `exemptedSlots`（教师主动免排）分别存储，禁止合并。
 
 ### 3.6 场地（D04）
 
@@ -249,7 +259,7 @@ walking_group_member (walking_group_id uuid, class_id uuid, primary key (walking
 | `bc.registry.subject.rule-configured` | D02 | timetable |
 | `bc.resource.teacher.created` | D03 | — |
 | `bc.resource.teacher.deactivated` | D03 | identity、timetable |
-| `bc.resource.assignment.configured` | D03 | timetable |
+| `bc.resource.assignment.configured` | D03 | timetable（payload 含 `changeType=CREATED/UPDATED/DELETED`） |
 | `bc.resource.venue.created` | D04 | timetable |
 | `bc.resource.combined-class.configured` | D04 | timetable |
 | `bc.resource.walking-group.configured` | D04 | timetable |

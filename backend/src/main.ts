@@ -13,11 +13,11 @@ function readPort(): number {
   return port;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   parseDatabaseConfig();
   const auth = createAuthRuntime({ config: parseAuthConfig(), pool: getPool() });
   const port = readPort();
-  const app = createApp({ auth });
+  const app = await createApp({ auth, routerLogger: console });
   const server = app.listen(port, () => {
     console.log(`后端已启动：http://localhost:${port}`);
   });
@@ -38,10 +38,8 @@ function main(): void {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : '未知启动错误';
   console.error(`启动失败：${message}`);
   process.exitCode = 1;
-}
+});

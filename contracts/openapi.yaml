@@ -1359,6 +1359,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 乐观锁版本
+        schema:
+          type: integer
+          minimum: 1
       security:
       - cookieAuth: []
         csrfToken: []
@@ -1400,6 +1407,52 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TeacherDeactivateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/{id}/restore:
+    post:
+      tags:
+      - Resource
+      summary: 教师恢复在职
+      operationId: restoreTeacher
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherRestoreRequest'
       x-csrf-required: true
       security:
       - cookieAuth: []
@@ -1557,6 +1610,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 乐观锁版本
+        schema:
+          type: integer
+          minimum: 1
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3526,7 +3586,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserEnvelope'
+                $ref: '#/components/schemas/ProvisioningResultEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3681,6 +3741,12 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserVersionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3720,6 +3786,12 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserVersionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3836,6 +3908,12 @@ paths:
       x-phase: P3
       x-required-roles:
       - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchProvisionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4701,17 +4779,33 @@ components:
           - string
           - 'null'
           format: uuid
+        teacherName:
+          type:
+          - string
+          - 'null'
         mustChangePassword:
           type: boolean
         status:
           $ref: '#/components/schemas/AccountStatus'
+        version:
+          type: integer
+          minimum: 1
+        lastLoginAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - userId
       - username
       - displayName
       - role
       - teacherId
+      - teacherName
       - mustChangePassword
+      - status
+      - version
+      - lastLoginAt
     CsrfData:
       type: object
       properties:
@@ -5029,7 +5123,7 @@ components:
           format: uuid
         weeklyPeriods:
           type: integer
-          minimum: 0
+          minimum: 1
         consecutivePreference:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
@@ -6167,8 +6261,10 @@ components:
       properties:
         employeeNo:
           type: string
+          pattern: ^T[0-9]+$
         name:
           type: string
+          minLength: 1
         gender:
           $ref: '#/components/schemas/Gender'
         phone:
@@ -6181,6 +6277,7 @@ components:
       - employeeNo
       - name
       - gender
+      additionalProperties: false
     TeacherUpdateRequest:
       type: object
       properties:
@@ -6197,6 +6294,7 @@ components:
           minimum: 1
       required:
       - version
+      additionalProperties: false
     TeacherDeactivateRequest:
       type: object
       properties:
@@ -6205,6 +6303,16 @@ components:
           minimum: 1
       required:
       - version
+      additionalProperties: false
+    TeacherRestoreRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+      additionalProperties: false
     TeachingAssignmentCreateRequest:
       type: object
       properties:
@@ -6224,7 +6332,7 @@ components:
           format: uuid
         weeklyPeriods:
           type: integer
-          minimum: 0
+          minimum: 1
         consecutivePreference:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
@@ -6253,7 +6361,7 @@ components:
           format: uuid
         weeklyPeriods:
           type: integer
-          minimum: 0
+          minimum: 1
         consecutivePreference:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
@@ -6269,6 +6377,7 @@ components:
           minimum: 1
       required:
       - version
+      additionalProperties: false
     VenueCreateRequest:
       type: object
       properties:
@@ -6643,6 +6752,7 @@ components:
           type:
           - string
           - 'null'
+          description: V1.0 不启用；初始密码由服务端随机生成并仅返回一次
       required:
       - username
       - displayName
@@ -6674,6 +6784,26 @@ components:
       required:
       - role
       - version
+    UserVersionRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    BatchProvisionRequest:
+      type: object
+      properties:
+        teacherIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+      required:
+      - teacherIds
     ResetPasswordRequest:
       type: object
       properties: {}

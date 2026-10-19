@@ -4,7 +4,7 @@ import { createApp } from '../src/app';
 
 describe('GET /api/v1/health', () => {
   it('returns the exact success envelope', async () => {
-    const response = await request(createApp({ probe: async () => true })).get('/api/v1/health');
+    const response = await request(await createApp({ probe: async () => true })).get('/api/v1/health');
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: { status: 'ok', db: true } });
@@ -12,7 +12,7 @@ describe('GET /api/v1/health', () => {
   });
 
   it('returns a clear 503 when the database is unavailable', async () => {
-    const response = await request(createApp({ probe: async () => false })).get('/api/v1/health');
+    const response = await request(await createApp({ probe: async () => false })).get('/api/v1/health');
 
     expect(response.status).toBe(503);
     expect(response.body).toEqual({
@@ -27,7 +27,7 @@ describe('GET /api/v1/health', () => {
 
   it('does not expose probe errors or secrets', async () => {
     const response = await request(
-      createApp({
+      await createApp({
         probe: async () => {
           throw new Error('password=super-secret cookie=session-token');
         },

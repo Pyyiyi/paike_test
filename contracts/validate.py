@@ -59,9 +59,9 @@ ops=[]
 for path,item in openapi['paths'].items():
     for method,op in item.items():
         if method in ('get','post','patch','put','delete'): ops.append((method.upper(),path,op))
-check(len(ops)==113,'expected 113 OpenAPI operations, got %d'%len(ops))
+check(len(ops)==114,'expected 114 OpenAPI operations, got %d'%len(ops))
 phase=Counter(op.get('x-phase') for _,_,op in ops)
-check(dict(phase)=={'P0':6,'P1':49,'P2':27,'P3':31},'unexpected phase operation counts: '+str(dict(phase)))
+check(dict(phase)=={'P0':6,'P1':50,'P2':27,'P3':31},'unexpected phase operation counts: '+str(dict(phase)))
 ids=[op.get('operationId') for _,_,op in ops]
 check(len(ids)==len(set(ids)),'duplicate operationId')
 check(all(op.get('tags') for _,_,op in ops),'operation missing tag')
@@ -84,7 +84,7 @@ for method,path,op in ops:
         for status in ('400','401','403','500'):
             check(status in responses,'operation missing %s error: %s %s'%(status,method,path))
         if method!='GET': check('409' in responses,'write missing 409: %s %s'%(method,path))
-add('OpenAPI inventory','113 operations; phase counts %s; refs=%d; unresolved=0'%(dict(phase),len(refs)))
+add('OpenAPI inventory','114 operations; phase counts %s; refs=%d; unresolved=0'%(dict(phase),len(refs)))
 
 # Enum parity: naming -> OpenAPI -> DDL
 schemas=openapi['components']['schemas']

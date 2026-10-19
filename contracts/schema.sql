@@ -313,7 +313,8 @@ CREATE TABLE IF NOT EXISTS teacher (
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
   deleted_at      timestamptz NULL,
-  CONSTRAINT uq_teacher_employee_no UNIQUE (employee_no)
+  CONSTRAINT uq_teacher_employee_no UNIQUE (employee_no),
+  CONSTRAINT ck_teacher_employee_no_format CHECK (employee_no ~ '^T[0-9]+$')
 );
 CREATE INDEX IF NOT EXISTS idx_teacher_status ON teacher (status);
 CREATE INDEX IF NOT EXISTS idx_teacher_name ON teacher (name);
@@ -500,7 +501,7 @@ CREATE TABLE IF NOT EXISTS teaching_assignment (
   subject_id              uuid NOT NULL REFERENCES subject(subject_id),
   class_id                uuid NOT NULL REFERENCES class(class_id),
   venue_id                uuid NULL REFERENCES venue(venue_id),
-  weekly_periods          integer NOT NULL CHECK (weekly_periods >= 0),
+  weekly_periods          integer NOT NULL CHECK (weekly_periods >= 1),
   consecutive_preference  consecutive_preference NOT NULL DEFAULT 'NONE',
   forbidden_slots         jsonb NOT NULL DEFAULT '[]'::jsonb,
   exempted_slots          jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -513,6 +514,8 @@ CREATE TABLE IF NOT EXISTS teaching_assignment (
 );
 CREATE INDEX IF NOT EXISTS idx_assignment_teacher ON teaching_assignment (teacher_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_assignment_class_subject ON teaching_assignment (class_id, subject_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_assignment_active_teacher_class_subject
+  ON teaching_assignment (teacher_id, class_id, subject_id) WHERE deleted_at IS NULL;
 
 ALTER TABLE sys_user DROP CONSTRAINT IF EXISTS fk_sys_user_teacher;
 ALTER TABLE sys_user ADD CONSTRAINT fk_sys_user_teacher FOREIGN KEY (teacher_id) REFERENCES teacher(teacher_id);

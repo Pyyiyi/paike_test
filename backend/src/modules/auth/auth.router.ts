@@ -5,6 +5,7 @@ import { normalizeIp } from '../../shared/auth/ip';
 import { hashPassword, validatePasswordPolicy, verifyPassword } from '../../shared/auth/password';
 import { requireAuth, type CurrentUser } from '../../shared/auth/rbac';
 import type { AuthRuntime } from '../../shared/auth/runtime';
+import type { ModuleRouterContext } from '../router-contract';
 import { createSession, destroySession } from '../../shared/auth/session';
 import { createAppError } from '../../shared/errors/app-error';
 import { asyncHandler } from '../../shared/http/async-handler';
@@ -45,6 +46,15 @@ function toUserDto(user: CurrentUser) {
   };
 }
 
+export function createRouter(context: ModuleRouterContext): Router | null {
+  if (!context.auth) {
+    return null;
+  }
+  const router = Router();
+  router.use('/auth', createAuthRouter(context.auth));
+  return router;
+}
+
 export function createAuthRouter(runtime: AuthRuntime): Router {
   const router = Router();
 
@@ -71,6 +81,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
           userAgent,
           detail: { reason: 'ACCOUNT_LOCKED' },
         });
+        response.set('Retry-After', String(remainingSeconds));
         throw createAppError('ACCOUNT_LOCKED',
           `登录失败次数过多，请 ${Math.max(1, Math.ceil(remainingSeconds / 60))} 分钟后再试`,
         );
@@ -207,6 +218,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
         ip: normalizeIp(request.ip),
         userAgent: request.get('user-agent') ?? undefined,
       });
+      await destroySession(request, runtime.config);
 
       response.json({ data: { ok: true } });
     }),

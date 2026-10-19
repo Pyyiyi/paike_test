@@ -231,10 +231,34 @@ events:
     payload: { teacherId, userId, username, occurredAt, occurredBy }
     card: D08
 
+  - name: bc.identity.user.created
+    producer: identity
+    consumers: []
+    payload: { userId, username, role, occurredAt, occurredBy }
+    card: D08
+
+  - name: bc.identity.user.disabled
+    producer: identity
+    consumers: []
+    payload: { userId, username, reason, occurredAt, occurredBy }
+    card: D08
+
+  - name: bc.identity.user.role-changed
+    producer: identity
+    consumers: []
+    payload: { userId, fromRole, toRole, occurredAt, occurredBy }
+    card: D08
+
   - name: bc.resource.teacher.deactivated
     producer: resource
     consumers: [identity, timetable]
     payload: { teacherId, status, occurredAt, occurredBy }
+    card: D03
+
+  - name: bc.resource.assignment.configured
+    producer: resource
+    consumers: [timetable]
+    payload: { assignmentId, teacherId, subjectId, classId, changeType, occurredAt, occurredBy }
     card: D03
 
   - name: bc.timetable.plan.generated

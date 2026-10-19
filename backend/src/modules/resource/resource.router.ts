@@ -6,6 +6,7 @@ import { asyncHandler } from '../../shared/http/async-handler';
 import { created, noContent, ok, paginated } from '../../shared/http/envelope';
 import { paginationSchema, parseBody, uuidSchema } from '../../shared/validation/common';
 import { requireAdmin } from '../../shared/auth/rbac';
+import type { ModuleRouterContext } from '../router-contract';
 import { CombinedClassService } from './combined-class.service';
 import { VenueService } from './venue.service';
 import { WalkingGroupService } from './walking-group.service';
@@ -48,6 +49,10 @@ function actorId(request: Request): string | undefined {
 
 function pageItems<T>(items: T[], page: number, pageSize: number): T[] {
   return items.slice((page - 1) * pageSize, page * pageSize);
+}
+
+export function createRouter(context: ModuleRouterContext): Router | null {
+  return context.auth?.pool ? createResourceRouter(context.auth.pool) : null;
 }
 
 export function createResourceRouter(pool: Pool): Router {
