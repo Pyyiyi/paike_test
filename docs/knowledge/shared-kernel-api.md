@@ -451,3 +451,46 @@ export function friendlyError(error: unknown): string;
 ```
 
 > 所有面向用户的最终文案必须是中文，且说明「发生了什么 + 怎么办」。
+
+## 13. P0-02 认证导出（已落地，可复用）
+
+> 完整参数与审计用例见 `docs/knowledge/security-baseline.md`。
+
+```ts
+// @/shared/auth/password
+export function hashPassword(plain: string, options?: Argon2Options): Promise<string>;
+export function verifyPassword(hash: string, plain: string): Promise<boolean>;
+export function validatePasswordPolicy(plain: string, policy?: PasswordPolicy): PasswordPolicyResult;
+export function generateInitialPassword(length?: number): string;
+
+// @/shared/auth/session
+export function createSessionMiddleware(config: AuthConfig, store: PgSessionStore): RequestHandler;
+export function createSession(request: Request, userId: string, config: AuthConfig): Promise<void>;
+export function destroySession(request: Request, config: AuthConfig): Promise<void>;
+export function touchSession(request: Request, now?: number): Promise<void>;
+
+// @/shared/auth/csrf
+export function issueCsrfToken(response: Response, config: AuthConfig): string;
+export function createCsrfMiddleware(): RequestHandler;
+
+// @/shared/auth/rbac
+export function loadCurrentUser(request: Request, runtime: AuthRuntime): Promise<CurrentUser | null>;
+export function createLoadCurrentUser(runtime: AuthRuntime): RequestHandler;
+export const requireAuth: RequestHandler;
+export function requireRole(...roles: UserRole[]): RequestHandler;
+export function createForcedPasswordChangeGuard(): RequestHandler;
+
+// @/shared/auth/lockout
+export class LockoutService {
+  recordFailure(username: string, ip: string, reason: string): Promise<void>;
+  recordSuccess(username: string, ip: string): Promise<void>;
+  isLocked(username: string, ip: string): Promise<boolean>;
+  lockRemainingSeconds(username: string, ip: string): Promise<number>;
+  clearFailures(username: string, ip: string): Promise<void>;
+}
+
+// @/shared/auth/runtime
+export function createAuthRuntime(input: { config: AuthConfig; pool: Pool; now?: () => number }): AuthRuntime;
+```
+
+装配约定：`createApp({ auth })` 在注入 `AuthRuntime` 后按 `cookie-parser → session → CSRF → loadCurrentUser → forced-password-guard → auth router` 顺序挂载；未注入时仅暴露健康检查，便于单元测试。
