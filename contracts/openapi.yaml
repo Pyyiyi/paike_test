@@ -4427,6 +4427,23 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                logo:
+                  type: string
+                  format: binary
+                  description: PNG only; decoded size <= 2 MiB; SVG is rejected
+                version:
+                  type: integer
+                  minimum: 0
+              required:
+              - logo
+              - version
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4513,6 +4530,35 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print/html/{token}:
+    get:
+      tags:
+      - Print
+      summary: 获取一次性受保护打印 HTML（内部）
+      operationId: getProtectedPrintHtml
+      x-phase: P3
+      x-internal: true
+      parameters:
+      - name: token
+        in: path
+        required: true
+        description: 256-bit 一次性 token；60 秒有效
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 128
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/ProtectedHtml'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/Internal'
 components:
@@ -4750,6 +4796,12 @@ components:
       - VENUE
       - ASSIGNMENT
       x-enum-name: TimetableDimension
+    PrintDimension:
+      type: string
+      enum:
+      - CLASS
+      - TEACHER
+      x-enum-name: PrintDimension
     OperationModule:
       type: string
       enum:
@@ -5996,6 +6048,30 @@ components:
       - totalRows
       - previewLimit
       - headerErrors
+    PrintMargins:
+      type: object
+      properties:
+        top:
+          type: integer
+          minimum: 0
+          maximum: 50
+        right:
+          type: integer
+          minimum: 0
+          maximum: 50
+        bottom:
+          type: integer
+          minimum: 0
+          maximum: 50
+        left:
+          type: integer
+          minimum: 0
+          maximum: 50
+      required:
+      - top
+      - right
+      - bottom
+      - left
     PrintTemplate:
       type: object
       properties:
@@ -6004,42 +6080,36 @@ components:
           format: uuid
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         paperSize:
           $ref: '#/components/schemas/PrintPaperSize'
         orientation:
           $ref: '#/components/schemas/PrintOrientation'
         marginMm:
-          type: object
-          properties:
-            top:
-              type: integer
-            right:
-              type: integer
-            bottom:
-              type: integer
-            left:
-              type: integer
-          required:
-          - top
-          - right
-          - bottom
-          - left
+          $ref: '#/components/schemas/PrintMargins'
         title:
           type:
           - string
           - 'null'
+          maxLength: 200
         logoDataUri:
           type:
           - string
           - 'null'
+          pattern: '^data:image/png;base64,'
+          maxLength: 2796226
+          description: PNG data URI only; decoded bytes <= 2 MiB; SVG and remote URLs are rejected
         headerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         footerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         isPreset:
           type: boolean
         version:
@@ -6076,7 +6146,7 @@ components:
       type: object
       properties:
         dimension:
-          type: string
+          $ref: '#/components/schemas/ExportDimension'
         columns:
           type: array
           items:
@@ -6089,10 +6159,34 @@ components:
               order:
                 type: integer
                 minimum: 1
+              sheetKey:
+                type: string
+              sheetName:
+                type: string
+                maxLength: 31
+              valueType:
+                type: string
+                enum:
+                - STRING
+                - DATE
+                - TIME
+                - NUMBER
+                - BOOLEAN
+                - ENUM
+              format:
+                type:
+                - string
+                - 'null'
+              nullable:
+                type: boolean
             required:
             - key
             - label
             - order
+            - sheetKey
+            - sheetName
+            - valueType
+            - nullable
       required:
       - dimension
       - columns
@@ -7052,38 +7146,29 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         paperSize:
           $ref: '#/components/schemas/PrintPaperSize'
         orientation:
           $ref: '#/components/schemas/PrintOrientation'
         marginMm:
-          type: object
-          properties:
-            top:
-              type: integer
-            right:
-              type: integer
-            bottom:
-              type: integer
-            left:
-              type: integer
-          required:
-          - top
-          - right
-          - bottom
-          - left
+          $ref: '#/components/schemas/PrintMargins'
         title:
           type:
           - string
           - 'null'
+          maxLength: 200
         headerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         footerText:
           type:
           - string
           - 'null'
+          maxLength: 500
       required:
       - name
       - paperSize
@@ -7094,38 +7179,29 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         paperSize:
           $ref: '#/components/schemas/PrintPaperSize'
         orientation:
           $ref: '#/components/schemas/PrintOrientation'
         marginMm:
-          type: object
-          properties:
-            top:
-              type: integer
-            right:
-              type: integer
-            bottom:
-              type: integer
-            left:
-              type: integer
-          required:
-          - top
-          - right
-          - bottom
-          - left
+          $ref: '#/components/schemas/PrintMargins'
         title:
           type:
           - string
           - 'null'
+          maxLength: 200
         headerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         footerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         version:
           type: integer
           minimum: 0
@@ -7138,11 +7214,9 @@ components:
           type: string
           format: uuid
         dimension:
-          $ref: '#/components/schemas/TimetableDimension'
+          $ref: '#/components/schemas/PrintDimension'
         objectId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         semesterId:
           type: string
@@ -7152,6 +7226,7 @@ components:
       required:
       - templateId
       - dimension
+      - objectId
       - semesterId
       - parity
     ExportRequest:
@@ -8003,7 +8078,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     TooLarge:
-      description: 上传文件超过 20 MB
+      description: 上传文件超过端点上限（导入 20 MB；校徽 2 MiB）
       content:
         application/json:
           schema:
@@ -8043,9 +8118,15 @@ components:
             type: string
             format: binary
     PdfFile:
-      description: PDF 文件
+      description: PDF 文件；预预览与打印对同一 renderKey 返回完全相同的字节
       content:
         application/pdf:
           schema:
             type: string
             format: binary
+    ProtectedHtml:
+      description: 一次性打印 HTML（仅内联 CSS/字体/data URI 校徽）
+      content:
+        text/html:
+          schema:
+            type: string

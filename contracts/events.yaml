@@ -740,6 +740,8 @@ events:
     - dimension
     - semesterId
     - objectCount
+    - rowCount
+    - durationMs
     properties:
       eventId: *id001
       occurredAt: *id002
@@ -748,6 +750,10 @@ events:
         type: string
       semesterId: *id001
       objectCount: *id004
+      rowCount: *id004
+      durationMs: *id004
+      filename:
+        type: string
 - name: bc.exchange.print.rendered
   schemaVersion: 1
   producer:
@@ -768,6 +774,11 @@ events:
     - templateId
     - dimension
     - semesterId
+    - objectId
+    - renderKey
+    - pageCount
+    - pdfBytes
+    - durationMs
     - format
     properties:
       eventId: *id001
@@ -777,6 +788,12 @@ events:
       dimension:
         type: string
       semesterId: *id001
+      objectId: *id001
+      renderKey:
+        type: string
+      pageCount: *id004
+      pdfBytes: *id004
+      durationMs: *id004
       format:
         type: string
         enum:

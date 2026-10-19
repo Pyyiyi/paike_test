@@ -73,7 +73,7 @@
 | XW-22 | 导入批次收口 | exchange | `import_batch` 终态与错误摘要；`operation_log`；`sys_outbox_event` | 汇总逐行结果 | `bc.exchange.import.completed`；操作日志 `IMPORT` | 批次收口与合法行业务写入同一事务；数据库/基础设施故障全部合法行回滚，再用补偿事务写 `FAILED` 批次 |
 | XW-23 | Excel 导出 | exchange | 仅 `sys_audit_log` | registry/resource/timetable/statistics query services | `bc.exchange.export.completed`（审计/通知） | T5；不写业务表、不写 `operation_log`；文件不落库 |
 | XW-24 | 打印模板维护 | exchange | `print_template`、`sys_audit_log`；必要时 `operation_log` | 无跨域写 | 安全审计 | T1；预设模板不可删；版本冲突零写入 |
-| XW-25 | 打印预览/渲染 | exchange | 仅 `sys_audit_log` | timetable/registry/statistics query services 读取同一数据源 | `bc.exchange.print.rendered` | T5；预览与 render 输出同一 PDF；一次性签名 token 60 秒 |
+| XW-25 | 打印预览/渲染 | exchange | 仅 `sys_audit_log` | timetable/registry/statistics query services 读取同一数据源 | `bc.exchange.print.rendered` | T5；预览与 render 按同一 renderKey 输出同一 PDF bytes；一次性 256-bit token 60 秒、仅存 SHA-256 |
 | XW-26 | 操作日志写入（全部关键操作） | 发起业务上下文 | `operation_log` | 经共享内核 `writeOperationLog`；governance 提供查询模型，不提供跨域写 repository | `bc.governance.operation.logged` | 与业务写入同事务；日志失败业务回滚 |
 | XW-27 | 安全审计写入（认证/账号/越权/导出/打印） | identity/shared | `sys_audit_log` | 共享内核 `writeSecurityAudit` | 无单独业务事件 | 与对应安全操作同事务或失败操作即时追加；追加写，无清理任务 |
 | XW-28 | 领域事件写入（所有生产者） | 各上下文 | `sys_outbox_event` | 无跨域命令 | 本文件 §3 各事件 | 与业务写入同事务；提交后 dispatcher 至少一次投递，消费者按 `eventId` 幂等 |

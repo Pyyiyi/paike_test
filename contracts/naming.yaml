@@ -417,6 +417,16 @@ enums:
       LANDSCAPE: 横向
     sqlType: print_orientation
     rule: 数据库、API、前端三处拼写完全一致
+  print_dimension:
+    apiSchema: PrintDimension
+    values:
+    - CLASS
+    - TEACHER
+    labels:
+      CLASS: 班级课表
+      TEACHER: 教师课表
+    storage: API-only
+    rule: 打印模板 V1.0 只支持班级/教师；由服务端校验，不是数据库枚举
   health_status:
     apiSchema: HealthStatus
     values:

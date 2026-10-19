@@ -6,7 +6,7 @@
 
 | 文件 | 冻结内容 |
 |------|----------|
-| `openapi.yaml` | Phase 0–3 共 114 个操作：6 个 P0、50 个 P1、27 个 P2、31 个 P3；请求/响应 schema、错误码、CSRF 与权限扩展 |
+| `openapi.yaml` | Phase 0–3 共 115 个操作：6 个 P0、50 个 P1、27 个 P2、32 个 P3；请求/响应 schema、错误码、CSRF 与权限扩展 |
 | `schema.sql` | 8 张共享表 + 26 张领域/应用支撑表，共 34 张；26 个 PostgreSQL enum 类型 |
 | `events.yaml` | 26 个领域事件；payload、生产者、消费者、聚合类型、`schemaVersion: 1` |
 | `naming.yaml` | 28 个枚举（26 个 SQL enum + 健康/错误码 API 枚举）、14 个错误码、角色、表所有权、字段字典 |
@@ -44,6 +44,15 @@ python3 contracts/validate.py
 8. A-02 优先于旧 XW-08 表述：账号引用阻止教师删除，删除路径不执行账号停用；退校仍是账号停用与主数据保留的独立路径。
 9. `bc.resource.assignment.configured` 增补必填 `changeType=CREATED/UPDATED/DELETED`，使 D05 能区分任课保存与逻辑删除。
 10. D08 设计态补充：`User` 增加 `teacherName`、`version`、`lastLoginAt`；`POST /users` 返回一次性凭据（`ProvisioningResult`）；停用/启用携带 `version`；批量开通增加 `teacherIds` 请求体与 UTF-8 BOM CSV 响应；`uq_sys_user_username_lower` 大小写不敏感唯一索引登记入 `schema.sql`；`bc.identity.user.created/disabled/role-changed` 登记入 `dependency-graph.yaml`。
+
+## D10 设计态补充（待 INT-03 归档）
+
+1. `print_template` 增加名称非空/长度、边距完整键/范围/版面可容纳、PNG data URI 与 2 MiB 编码上限约束；去掉排序冲突的内联 `UNIQUE(name)`，统一使用未删除记录 `lower(name)` 唯一索引。
+2. 预设模板由 `0033_exchange_print.sql` 幂等写入；应用与数据库触发器双层拒绝预设逻辑/物理删除。
+3. `ColumnDictionary` 的列项增加 `sheetKey/sheetName/valueType/format/nullable`，保持顶层 `dimension/columns` 不变；精确三维列字典见 `docs/knowledge/designs/D10-export-print.md` §3。
+4. `PrintRenderRequest.dimension` 收紧为 API-only `PrintDimension=CLASS|TEACHER`，`objectId` 必填；打印 V1.0 不导出全校/场地/任课视图。
+5. 新增内部 `GET /print/html/{token}`：256-bit 一次性 token、60 秒 TTL、只存 SHA-256、消费即失效；预览与 render 使用单一 `renderPdf` 和同一 renderKey 缓存。
+6. 校徽上传请求冻结为 multipart `logo + version`；SVG/伪装 PNG 400，校徽 >2 MiB 413；PDF 指标与审计事件 payload 已登记。
 
 ## D05 设计态补充（待 INT-03 归档）
 

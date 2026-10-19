@@ -109,9 +109,9 @@ print_template (
   name text not null unique,
   paper_size paper_size not null default 'A4',
   orientation paper_orientation not null default 'LANDSCAPE',
-  margin_mm jsonb not null,           -- { top, right, bottom, left }
+  margin_mm jsonb not null,           -- { top, right, bottom, left }；四项 0..50mm，扣边距后至少 20mm 可打印区域
   title text,
-  logo_data_uri text,                 -- PNG ≤2 MB
+  logo_data_uri text,                 -- 仅 data:image/png;base64；解码后 ≤2 MiB；禁止 SVG/远程 URL
   header_text text,
   footer_text text,
   is_preset boolean not null default false,
@@ -272,9 +272,9 @@ print_template (
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/exports/options` | 可用维度、学期、列字典 |
+| GET | `/exports/options` | 可用维度、学期、课表维度、列字典版本 |
+| GET | `/exports/columns?dimension=` | 返回扁平列定义：`key/label/order/sheetKey/sheetName/valueType/format/nullable` |
 | POST | `/exports` | 生成并直接返回文件（`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`） |
-| GET | `/exports/columns?dimension=` | 列名与顺序 |
 
 请求：
 
@@ -284,37 +284,44 @@ print_template (
   "semesterId": "uuid",
   "timetableDimension": "CLASS",
   "objectIds": ["uuid"],
-  "parity": "ALL"
+  "parity": "ALL",
+  "scope": "SEMESTER",
+  "weekIndex": null
 }
 ```
 
-维度：
+维度与 Sheet：
 
-| dimension | sheet |
-|-----------|-------|
-| `MASTER_DATA` | 学期、年级、班级、科目、教师、任课、场地、合班（按实体分 sheet） |
-| `TIMETABLE` | 按视图分 sheet（班级/教师/全校/场地/任课） |
-| `STATISTICS` | 工作量统计 |
+| dimension | Sheet 顺序 |
+|-----------|------------|
+| `MASTER_DATA` | 学期、年级、班级、科目、教师、任课、场地、合班 |
+| `TIMETABLE` | 班级、教师、全校、场地、任课；每行固定 12 列 |
+| `STATISTICS` | 工作量统计；列与 D11 `WorkloadRow` 一致 |
 
 规则（H-04）：
 
-- XLSX；只导出值；日期 `YYYY-MM-DD`，时间 `HH:mm`；空值为空单元格；冻结表头。
-- 列名/顺序来自 `COLUMN_DICTIONARY`，与页面逐字段一致。
-- 文件名 `{维度}_{学期}_{YYYYMMDDHHmm}.xlsx`。
-- 1000 行 × 12 列，服务端生成并落盘 p95 ≤3 秒（H-03）。
-- 导出操作写安全审计（非七类关键操作，不要求二次确认）。
+- `COLUMN_DICTIONARY` 是列名、列序、Sheet 顺序、取值类型、格式化规则的唯一来源；`/exports/columns` 返回同一常量，页面与导出禁止各维护一套。
+- 精确列字典、Sheet 结构、12 列课表行契约和统计 8 列见 `docs/knowledge/designs/D10-export-print.md` §3。
+- XLSX；只导出值；不写公式/宏/外链/批注/远程图片；日期 `YYYY-MM-DD`，时间 `HH:mm`；空值为空单元格；所有 Sheet 冻结首行表头。
+- 文件名 `{维度}_{学期}_{YYYYMMDDHHmm}.xlsx`，维度为中文显示值，学期名净化路径分隔符。
+- 1000 行 × 12 列，服务端生成并落盘 p95 ≤3 秒（H-03）；计时覆盖查询、格式化、序列化与落盘。
+- 临时文件仅存 `EXPORT_TMP_DIR`，成功响应后删除；清理任务每分钟删除超过 10 分钟的残留文件。
+- `MASTER_DATA` 保留 8 个按实体 Sheet；`TIMETABLE` 只导出非空课次行；`STATISTICS` 直接复用 D11 查询，不在 exchange 重算。
+- 已存档学期允许导出；跨学期 ID 返回 404，不得回退当前学期。
+- 导出操作写安全审计 `sys_audit_log`（`action=EXPORT`）与 `bc.exchange.export.completed`；不属于七类关键操作，不要求二次确认，不写 `operation_log`。
 
 ### 3.5 打印（D10）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/print-templates` | 模板列表 |
+| GET | `/print-templates` | 模板列表（预设优先） |
 | POST | `/print-templates` | 新建模板 |
-| PATCH | `/print-templates/:id` | 编辑（`version`） |
-| DELETE | `/print-templates/:id` | 逻辑删除（预设模板不可删） |
-| POST | `/print-templates/:id/logo` | 上传 PNG ≤2 MB |
-| POST | `/print/preview` | 返回 PDF（`application/pdf`），用于预览 |
-| POST | `/print/render` | 返回同一 PDF，用于下载/打印 |
+| PATCH | `/print-templates/:id` | 编辑（必须携带 `version`） |
+| DELETE | `/print-templates/:id` | 逻辑删除（预设模板不可删，409） |
+| POST | `/print-templates/:id/logo` | multipart：`logo` PNG ≤2 MiB + `version` |
+| POST | `/print/preview` | 返回 PDF（`application/pdf` inline），用于预览 |
+| POST | `/print/render` | 返回同一 PDF（download），用于下载/打印 |
+| GET | `/print/html/:token` | 内部受保护 HTML；一次性 token，仅供 Playwright 读取 |
 
 请求：
 
@@ -328,12 +335,32 @@ print_template (
 }
 ```
 
+模板字段：
+
+| 字段 | 规则 |
+|------|------|
+| `name` | 去空白非空、≤100；未删除记录内大小写不敏感唯一 |
+| `paperSize` | `A4` / `A3` |
+| `orientation` | `PORTRAIT` / `LANDSCAPE` |
+| `marginMm` | `{top,right,bottom,left}` 毫米整数 0..50；扣除后至少 20mm 可打印区域 |
+| `title` / `headerText` / `footerText` | 可为空；标题 ≤200，页眉页脚各 ≤500 |
+| `logoDataUri` | 仅 PNG data URI；解码后 ≤2 MiB；SVG/伪装文件 400，超限 413 |
+| `isPreset` / `version` | 预设不可删除；创建 version=0，编辑/换校徽 +1，冲突 409 |
+
+预设模板固定为：`标准课表 · 校徽版`、`紧凑版（A4 横）`、`教师手册版`；预设逻辑删除和物理删除均由应用与数据库触发器双层拒绝。
+
 规则：
 
-- 预览与打印调用同一 HTML 模板与同一 `renderPdf`，输出同一份 PDF（H-04）。
-- 纸张 A4/A3、横/纵向、边距可配；校徽 PNG ≤2 MB，以 data URI 内嵌。
-- 打印页通过一次性签名 token 访问受保护 HTML，有效期 60 秒。
-- 打印任务写安全审计。
+- 打印维度 V1.0 只允许 `CLASS` / `TEACHER`；其他维度 400。
+- 预览与打印调用同一 HTML 模板与同一 `renderPdf`，按 `renderKey=sha256(templateId+version+snapshotHash+parity)` 复用同一份 PDF bytes；预览与 render 仅 Content-Disposition 不同。
+- HTML 只使用内联 CSS、系统字体和 data URI 校徽，不加载远程资源；受保护地址返回 `no-store`、`no-referrer`、CSP，禁止脚本。
+- 打印页 token 为 256-bit 随机值，只存 SHA-256，路径传递；有效期 60 秒、首次成功即消费；过期/重放统一 `401 UNAUTHENTICATED`。
+- 服务端 Chromium 复用 browser，每次 new context/page；等待字体与两帧后调用 `page.pdf`，超时 `PRINT_TIMEOUT_MS=30000`。
+- PDF/HTML token 仅驻留进程或 10 分钟临时目录，不长期落库；缓存上限 32 份/64 MiB，并发相同 renderKey 用单一 in-flight Promise。
+- PDF 指标记录 `browserLaunchMs/htmlLoadMs/pdfRenderMs/totalDurationMs/pdfBytes/pageCount/cacheHit`；实现轮次以 20 次预热后 p50/p95 回填，设计态不声称实测。
+- 预览和打印均写 `sys_audit_log`（`action=PRINT_PREVIEW|PRINT_RENDER`）与 `bc.exchange.print.rendered`；不记录 token 原文。
+
+完整模板/PDF/token/前端契约见 `docs/knowledge/designs/D10-export-print.md` §5-§8。
 
 ---
 
