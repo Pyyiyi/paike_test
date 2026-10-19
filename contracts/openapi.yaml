@@ -2224,6 +2224,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 当前方案乐观版本
+        schema:
+          type: integer
+          minimum: 0
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2766,6 +2773,13 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanVersionRequest'
+      x-csrf-required: true
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2812,6 +2826,13 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanVersionRequest'
+      x-csrf-required: true
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2904,6 +2925,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 当前方案乐观版本
+        schema:
+          type: integer
+          minimum: 0
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4710,6 +4738,11 @@ components:
       - IMPORT
       - ARCHIVE
       - ADJUST
+      - GENERATE
+      - SAVE_AS
+      - IGNORE_ONCE
+      - LOCK
+      - UNLOCK
       x-enum-name: OperationModule
     PrintPaperSize:
       type: string
@@ -5124,6 +5157,10 @@ components:
           type: boolean
         fixedSlotRuleEnabled:
           type: boolean
+        fixedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
         version:
           type: integer
           minimum: 1
@@ -5137,6 +5174,7 @@ components:
       - periodBalanceEnabled
       - amPmBalanceEnabled
       - fixedSlotRuleEnabled
+      - fixedSlots
       - version
     Teacher:
       type: object
@@ -5453,6 +5491,8 @@ components:
           type:
           - integer
           - 'null'
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
         ruleId:
           type:
           - string
@@ -5464,13 +5504,22 @@ components:
           additionalProperties: true
         suggestion:
           type: string
+        ignorable:
+          type: boolean
+        ignoreBlockedReason:
+          type:
+          - string
+          - 'null'
         resolution:
           $ref: '#/components/schemas/ConflictResolution'
       required:
       - conflictId
       - planId
       - conflictType
+      - weekParity
       - suggestion
+      - ignorable
+      - ignoreBlockedReason
       - resolution
     UnscheduledLesson:
       type: object
@@ -6330,6 +6379,10 @@ components:
           type: boolean
         fixedSlotRuleEnabled:
           type: boolean
+        fixedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
         version:
           type: integer
           minimum: 0
@@ -6341,6 +6394,7 @@ components:
       - periodBalanceEnabled
       - amPmBalanceEnabled
       - fixedSlotRuleEnabled
+      - fixedSlots
     TeacherCreateRequest:
       type: object
       properties:
@@ -6640,9 +6694,15 @@ components:
     GeneratePlanRequest:
       type: object
       properties:
+        version:
+          type: integer
+          minimum: 0
         preserveLocked:
           type: boolean
-      required: []
+          default: true
+      required:
+      - version
+      - preserveLocked
     SaveAsPlanRequest:
       type: object
       properties:
@@ -6665,6 +6725,14 @@ components:
       required:
       - version
       - confirmOverwrite
+    PlanVersionRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - version
     MoveOperation:
       type: object
       properties:
@@ -6738,6 +6806,9 @@ components:
     LessonCreateRequest:
       type: object
       properties:
+        version:
+          type: integer
+          minimum: 0
         weekday:
           type: integer
           minimum: 1
@@ -6769,6 +6840,7 @@ components:
             format: uuid
           minItems: 1
       required:
+      - version
       - weekday
       - period
       - weekParity

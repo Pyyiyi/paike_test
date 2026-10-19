@@ -66,6 +66,7 @@ subject_period_rule (
   forbidden_slots jsonb, time_slot_preference time_slot_preference_enum,
   period_balance_enabled boolean, am_pm_balance_enabled boolean,
   fixed_slot_rule_enabled boolean,
+  fixed_slots jsonb,                 -- H10 允许时段；启用固定规则时非空
   version int, updated_at
 )
 ```

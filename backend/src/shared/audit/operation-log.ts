@@ -8,7 +8,12 @@ export type OperationModule =
   | 'SWITCH_SEMESTER'
   | 'IMPORT'
   | 'ARCHIVE'
-  | 'ADJUST';
+  | 'ADJUST'
+  | 'GENERATE'
+  | 'SAVE_AS'
+  | 'IGNORE_ONCE'
+  | 'LOCK'
+  | 'UNLOCK';
 
 export interface OperationLogInput {
   operatorId: string;

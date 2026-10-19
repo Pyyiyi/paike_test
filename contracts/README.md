@@ -45,6 +45,15 @@ python3 contracts/validate.py
 9. `bc.resource.assignment.configured` 增补必填 `changeType=CREATED/UPDATED/DELETED`，使 D05 能区分任课保存与逻辑删除。
 10. D08 设计态补充：`User` 增加 `teacherName`、`version`、`lastLoginAt`；`POST /users` 返回一次性凭据（`ProvisioningResult`）；停用/启用携带 `version`；批量开通增加 `teacherIds` 请求体与 UTF-8 BOM CSV 响应；`uq_sys_user_username_lower` 大小写不敏感唯一索引登记入 `schema.sql`；`bc.identity.user.created/disabled/role-changed` 登记入 `dependency-graph.yaml`。
 
+## D05 设计态补充（待 INT-03 归档）
+
+1. `subject_period_rule` 增加 `fixed_slots` 与 `fixedSlots` API 字段，关闭 H10“固定时段规则无允许槽位集合”的契约缺口；启用规则时必须非空。
+2. D05 写端点补齐 H-01 版本：生成、锁定/解锁、预排课次请求携带 `version`；删除草稿/预排课次使用 `?version=`。
+3. `operation_module` 增加 `GENERATE`、`SAVE_AS`、`IGNORE_ONCE`、`LOCK`、`UNLOCK`，用于生成、另存、只本次忽略与锁定的同事务审计。
+4. `ConflictDetail` 增加 `weekParity`、`ignorable`、`ignoreBlockedReason`；容量超限、锁定违规和存档态不得提供忽略入口。
+5. `conflict_ignore` 改为无 `conflict_id` 外键的运行级审计快照，避免重新生成删除旧冲突触发 append-only 更新并丢失审计；新增 generation/fingerprint/object snapshot 字段。
+6. D15 口径登记为 PRD 附件 A 的 30 个表格格（6 表头 + 24 个数据坐标）；24 个课表坐标逐字段比较。
+
 ## 实现通知
 
 D01–D11、INT-01/INT-02 实现时以本目录为准：
