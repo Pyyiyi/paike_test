@@ -27,6 +27,7 @@ import {
 const confirm = useConfirm();
 
 const semesters = ref<SemesterSummary[]>([]);
+let semesterLoadToken = 0;
 const templates = ref<ScheduleTemplate[]>([]);
 const versionsByTemplate = ref<Record<string, ScheduleTemplateVersion[]>>({});
 const loading = ref(false);
@@ -133,14 +134,24 @@ function resetForm(): void {
 }
 
 async function loadSemesters(): Promise<void> {
+  const token = ++semesterLoadToken;
   loading.value = true;
   error.value = '';
   try {
-    semesters.value = await semesterApi.list(includeArchived.value);
+    const rows = await semesterApi.list(includeArchived.value);
+    if (token !== semesterLoadToken) {
+      return;
+    }
+    semesters.value = rows;
   } catch (caught) {
+    if (token !== semesterLoadToken) {
+      return;
+    }
     error.value = friendlyError(caught);
   } finally {
-    loading.value = false;
+    if (token === semesterLoadToken) {
+      loading.value = false;
+    }
   }
 }
 
@@ -339,9 +350,9 @@ function removeCalendarFromRow(row: TableRow): void {
   void removeCalendarException(row as unknown as CalendarException);
 }
 
-onMounted(async () => {
-  await loadTemplates();
-  await loadSemesters();
+onMounted(() => {
+  void loadTemplates();
+  void loadSemesters();
 });
 </script>
 

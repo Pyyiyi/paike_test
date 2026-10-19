@@ -1,7 +1,6 @@
 import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
-import { createAuthRouter } from './modules/auth/auth.router';
-import { createRegistryRouter } from './modules/registry';
+import { registerModuleRouters } from './modules';
 import { createCsrfMiddleware } from './shared/auth/csrf';
 import { createForcedPasswordChangeGuard, createLoadCurrentUser } from './shared/auth/rbac';
 import type { AuthRuntime } from './shared/auth/runtime';
@@ -15,9 +14,10 @@ import type { Clock } from './shared/time/clock';
 export interface AppOptions extends HealthRouterOptions {
   auth?: AuthRuntime;
   clock?: Clock;
+  routerLogger?: Pick<Console, 'info'>;
 }
 
-export function createApp(options: AppOptions = {}): Express {
+export async function createApp(options: AppOptions = {}): Promise<Express> {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);
@@ -34,14 +34,14 @@ export function createApp(options: AppOptions = {}): Express {
     app.use(createCsrfMiddleware());
     app.use(createLoadCurrentUser(options.auth));
     app.use(createForcedPasswordChangeGuard());
-    app.use('/api/v1/auth', createAuthRouter(options.auth));
   }
 
   app.use('/api/v1', createHealthRouter({ probe: options.probe }));
+  await registerModuleRouters(app, {
+    context: { auth: options.auth, clock: options.clock },
+    logger: options.routerLogger,
+  });
 
-  if (options.auth) {
-    app.use('/api/v1', createRegistryRouter(options.auth.pool, options.clock));
-  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

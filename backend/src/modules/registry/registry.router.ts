@@ -11,6 +11,14 @@ import {
   createScheduleTemplateVersionSchema,
 } from './dto/schedule-template.schema';
 import { createRegistryController } from './registry.controller';
+import type { ModuleRouterContext } from '../router-contract';
+
+export function createRouter(context: ModuleRouterContext): Router | null {
+  if (!context.auth) {
+    return null;
+  }
+  return createRegistryRouter(context.auth.pool, context.clock ?? systemClock);
+}
 
 export function createRegistryRouter(pool: Pool, clock: Clock = systemClock): Router {
   const router = Router();

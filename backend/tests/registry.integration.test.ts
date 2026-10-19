@@ -23,7 +23,7 @@ let adminPool: Pool;
 let pool: Pool;
 let schema = '';
 let runtime: AuthRuntime;
-let app: ReturnType<typeof createApp>;
+let app: Awaited<ReturnType<typeof createApp>>;
 let agent: ReturnType<typeof request.agent>;
 let csrfToken = '';
 let adminId = '';
@@ -136,7 +136,7 @@ beforeAll(async () => {
   );
 
   runtime = createAuthRuntime({ config: makeConfig(), pool });
-  app = createApp({ auth: runtime, clock });
+  app = await createApp({ auth: runtime, clock });
   await login();
 });
 

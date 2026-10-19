@@ -341,7 +341,13 @@ onMounted(load);
     >
       <el-form label-position="top" class="template-form">
         <el-form-item label="模板名称" required :error="formErrors.name">
-          <el-input v-model="form.name" maxlength="100" placeholder="例如：默认作息模板" />
+          <el-input
+            v-model="form.name"
+            maxlength="100"
+            placeholder="例如：默认作息模板"
+            :disabled="Boolean(editingTemplateId)"
+          />
+          <p v-if="editingTemplateId" class="form-hint">模板名称在创建后不可修改；保存只会追加新的节次版本。</p>
         </el-form-item>
         <el-form-item label="开放排课星期" required :error="formErrors.openWeekdays">
           <el-checkbox-group v-model="form.openWeekdays">

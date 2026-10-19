@@ -79,6 +79,67 @@ export function fieldErrors(error: unknown): Record<string, string> {
   }, {});
 }
 
+export const AUTH_COPY = {
+  loginTitle: '登录工作台',
+  loginIntro: '请使用学校分配的账号登录。',
+  usernameLabel: '用户名',
+  usernamePlaceholder: '请输入用户名',
+  passwordLabel: '密码',
+  passwordPlaceholder: '请输入密码',
+  loginButton: '登录系统',
+  credentialError: '用户名或密码错误',
+  sessionExpired: MESSAGES.UNAUTHENTICATED,
+  passwordChanged: '密码修改成功，请重新登录',
+  forcedPasswordTitle: '请先修改初始密码',
+  forcedPasswordIntro: '首次登录需要设置新密码。修改成功后，当前登录会话将失效，请使用新密码重新登录。',
+  voluntaryPasswordTitle: '修改登录密码',
+  voluntaryPasswordIntro: '定期更换密码有助于保护账号安全。修改成功后，当前登录会话将失效，请使用新密码重新登录。',
+  currentPasswordLabel: '当前密码',
+  newPasswordLabel: '新密码',
+  confirmPasswordLabel: '确认新密码',
+  changePasswordButton: '保存并重新登录',
+  backToWorkspace: '返回工作台',
+  lockout: (minutes: number) => `登录失败次数过多，请 ${minutes} 分钟后再试`,
+} as const;
+
+export const PASSWORD_POLICY_COPY = {
+  title: '密码策略',
+  minLength: '至少 8 个字符',
+  characterClasses: '大写字母、小写字母、数字、符号至少包含 3 类',
+  differentFromCurrent: '不能与当前密码相同',
+  confirmationMatches: '两次输入的新密码一致',
+  currentPasswordRequired: '请输入当前密码',
+  newPasswordRequired: '请输入新密码',
+  confirmPasswordRequired: '请再次输入新密码',
+  confirmationMismatch: '两次输入的新密码不一致',
+  sameAsCurrent: '新密码不能与当前密码相同',
+} as const;
+
+export interface PasswordPolicyState {
+  length: boolean;
+  classes: boolean;
+  different: boolean;
+  matches: boolean;
+  classCount: number;
+}
+
+const PASSWORD_CLASS_PATTERNS = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/] as const;
+
+export function evaluatePasswordPolicy(
+  newPassword: string,
+  currentPassword: string,
+  confirmation: string,
+): PasswordPolicyState {
+  const classCount = PASSWORD_CLASS_PATTERNS.filter((pattern) => pattern.test(newPassword)).length;
+  return {
+    length: newPassword.length >= 8,
+    classes: classCount >= 3,
+    different: newPassword.length > 0 && newPassword !== currentPassword,
+    matches: confirmation.length > 0 && confirmation === newPassword,
+    classCount,
+  };
+}
+
 export const ROLE_LABELS = {
   ADMIN: '教务管理员',
   TEACHER: '教师',

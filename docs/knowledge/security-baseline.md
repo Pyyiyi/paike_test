@@ -72,7 +72,7 @@
 
 ### 2.6 运行时装配
 
-- `@/shared/auth/runtime`：`createAuthRuntime({ config, pool, now? })`，返回 `{ config, pool, now, lockout, writeAudit }`；`createApp({ auth })` 仅在注入该运行时后挂载认证栈。
+- `@/shared/auth/runtime`：`createAuthRuntime({ config, pool, now? })`，返回 `{ config, pool, now, lockout, writeAudit }`；`await createApp({ auth })` 仅在注入该运行时后由 Hub 挂载认证模块。
 
 ## 3. 安全审计用例说明
 
@@ -85,7 +85,7 @@
 | 账号停用后尝试登录 | `LOGIN` | `FAILURE` | `{ reason: 'ACCOUNT_DISABLED' }` |
 | 锁定期内尝试登录 | `LOGIN` | `DENIED` | `{ reason: 'ACCOUNT_LOCKED' }` |
 | 退出登录 | `LOGOUT` | `SUCCESS` | — |
-| 修改密码 | `CHANGE_PASSWORD` | `SUCCESS` | — |
+| 修改密码 | `CHANGE_PASSWORD` | `SUCCESS` | 当前会话随后撤销 |
 | 会话空闲/绝对过期 | `SESSION_EXPIRED` | `DENIED` | — |
 | 停用账号携带旧会话访问 | `ACCOUNT_DISABLED_ACCESS` | `DENIED` | `{ reason: 'DISABLED' }` |
 
@@ -96,7 +96,7 @@
 3. 退出后旧 Cookie 访问 `/auth/me` 返回 `401`，对应 `sys_session.revoked_at` 非空。
 4. 停用账号下一请求返回 `401`，会话被撤销。
 5. 无 / 错误 `X-CSRF-Token` 的非 GET 请求返回 `403`；正确 Token 成功。
-6. 强制改密用户访问其他接口返回 `403 STATE_CONFLICT`；改密后恢复正常。
+6. 强制改密用户访问其他接口返回 `403 STATE_CONFLICT`；改密成功后当前会话被撤销，必须重新登录后恢复访问。
 7. 密码以 `$argon2id$` 开头存储；策略拒绝短密码与少于 3 类字符的密码。
 
 ## 4. 验证结果
