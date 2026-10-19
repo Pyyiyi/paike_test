@@ -267,6 +267,66 @@ enums:
       VENUES: 场地
     sqlType: import_module
     rule: 数据库、API、前端三处拼写完全一致
+  import_issue_severity:
+    apiSchema: ImportIssueSeverity
+    values:
+    - ERROR
+    - WARNING
+    labels:
+      ERROR: 错误
+      WARNING: 警告
+    rule: API-only；ERROR 计入 failed 行，WARNING 不计入
+  import_error_code:
+    apiSchema: ImportErrorCode
+    values:
+    - REQUIRED_HEADER_MISSING
+    - DUPLICATE_HEADER
+    - UNKNOWN_COLUMN
+    - UNSUPPORTED_FORMAT
+    - UNSUPPORTED_ENCODING
+    - EMPTY_FILE
+    - PARSE_ERROR
+    - ROW_LIMIT_EXCEEDED
+    - FILE_TOO_LARGE
+    - REQUIRED_VALUE_MISSING
+    - INVALID_TYPE
+    - INVALID_FORMAT
+    - INVALID_ENUM
+    - INVALID_DATE
+    - VALUE_OUT_OF_RANGE
+    - REFERENCE_NOT_FOUND
+    - DUPLICATE_KEY
+    - CROSS_FIELD_INVALID
+    - INVALID_SLOT
+    - CONTROLLED_VOCABULARY_MISMATCH
+    - DATABASE_FAILURE
+    - TEMPLATE_NOT_FOUND
+    - ERROR_REPORT_CONSUMED
+    labels:
+      REQUIRED_HEADER_MISSING: 缺少必填列
+      DUPLICATE_HEADER: 表头重复
+      UNKNOWN_COLUMN: 未知列
+      UNSUPPORTED_FORMAT: 不支持的文件格式
+      UNSUPPORTED_ENCODING: 不支持的编码
+      EMPTY_FILE: 文件没有数据
+      PARSE_ERROR: 文件解析失败
+      ROW_LIMIT_EXCEEDED: 数据行超过上限
+      FILE_TOO_LARGE: 文件超过大小上限
+      REQUIRED_VALUE_MISSING: 必填项为空
+      INVALID_TYPE: 值类型不正确
+      INVALID_FORMAT: 值格式不正确
+      INVALID_ENUM: 值不在允许范围
+      INVALID_DATE: 日期格式不正确
+      VALUE_OUT_OF_RANGE: 值超出范围
+      REFERENCE_NOT_FOUND: 引用数据不存在
+      DUPLICATE_KEY: 数据已存在
+      CROSS_FIELD_INVALID: 字段组合不合法
+      INVALID_SLOT: 时段格式不正确
+      CONTROLLED_VOCABULARY_MISMATCH: 名称不在受控词表
+      DATABASE_FAILURE: 数据库写入失败
+      TEMPLATE_NOT_FOUND: 模板不存在
+      ERROR_REPORT_CONSUMED: 错误报告已下载
+    rule: API-only；键与 OpenAPI ImportErrorCode 完全一致
   import_batch_status:
     apiSchema: ImportBatchStatus
     values:
@@ -1413,6 +1473,10 @@ fieldDictionary:
       dbColumn: errors
       apiType: array<ImportError>
       nullable: false
+    errorsTruncated:
+      dbColumn: errors_truncated
+      apiType: boolean
+      nullable: false
     operatorId:
       dbColumn: operator_id
       apiType: string
@@ -1442,6 +1506,14 @@ fieldDictionary:
       dbColumn: raw_value
       apiType: string
       nullable: true
+    code:
+      dbColumn: code
+      apiType: ImportErrorCode
+      nullable: false
+    severity:
+      dbColumn: severity
+      apiType: ImportIssueSeverity
+      nullable: false
     message:
       dbColumn: message
       apiType: string
