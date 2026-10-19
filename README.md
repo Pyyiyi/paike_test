@@ -34,13 +34,15 @@
 ```bash
 npm install
 cp .env.example .env
-# 至少将 DATABASE_URL 指向一个空的 PostgreSQL 16 数据库
+# 按 docs/knowledge/config-contract.md 填写数据库连接与会话密钥
 npm run db:migrate
 npm run db:seed
 npm run dev
 ```
 
 迁移按 `migrations/NNNN_name.sql` 文件名顺序在事务中执行，并写入 `sys_migration`；重复执行 `npm run db:migrate` 应输出「无待执行迁移」。
+
+`npm run db:seed` 会先执行待应用迁移，再幂等写入管理员、受控词表与当前已存在的 D15 领域锚点；重复执行不会重复插入，也不会重置已修改的管理员密码。固定 UUID 清单见 `docs/knowledge/seed-anchors.md`。
 
 默认访问地址：`http://localhost:5173`（前端开发服务器），后端 `http://localhost:3000`。后端启动后可用 `curl http://localhost:3000/api/v1/health` 检查数据库连通性。
 
@@ -49,10 +51,11 @@ npm run dev
 | 项 | 值 |
 |----|----|
 | 用户名 | `admin` |
-| 初始密码 | 由 `PAIKE_ADMIN_INITIAL_PASSWORD` 注入；未注入时首次启动在服务端控制台**仅输出一次** |
-| 首次登录 | 强制修改密码（≥8 位，大写/小写/数字/符号至少 3 类） |
+| 初始密码 | 由 `PAIKE_ADMIN_INITIAL_PASSWORD` 注入；未注入时首次执行 `npm run db:seed` 在控制台**仅输出一次** |
+| 首次登录 | `mustChangePassword=true`，强制修改密码（≥8 位，大写/小写/数字/符号至少 3 类） |
+| 重复 seed | 保留现有密码与改密状态，只确保唯一 `admin` 账号为 `ADMIN` / `ENABLED` |
 
-> 初始密码不得写入任何日志文件、不得提交到版本库。
+> 初始密码不得写入任何日志文件、不得提交到版本库。D15 与受控词表锚点见 `docs/knowledge/seed-anchors.md`。
 
 ### 2.4 常用命令
 
@@ -125,13 +128,13 @@ PORT=3000
 DATABASE_URL=postgres://paike:paike@localhost:5432/paike
 SESSION_SECRET=<32 字节以上随机串>
 PAIKE_ADMIN_INITIAL_PASSWORD=
-PAIKE_SESSION_IDLE_HOURS=8
-PAIKE_SESSION_ABSOLUTE_DAYS=7
-PAIKE_LOGIN_MAX_FAILURES=5
-PAIKE_LOGIN_LOCK_MINUTES=15
-PAIKE_UPLOAD_DIR=./var/uploads
-PAIKE_EXPORT_TMP_DIR=./var/exports
-PAIKE_PRINT_BASE_URL=http://localhost:3000
+SESSION_IDLE_HOURS=8
+SESSION_ABSOLUTE_DAYS=7
+LOGIN_MAX_FAILURES=5
+LOGIN_LOCK_MINUTES=15
+UPLOAD_DIR=./var/uploads
+EXPORT_TMP_DIR=./var/exports
+PRINT_BASE_URL=http://localhost:3000
 ```
 
 ## 5. 页面与功能对照
@@ -190,6 +193,7 @@ PAIKE_PRINT_BASE_URL=http://localhost:3000
 | `conventions.md` | 9 类跨卡片共享技术约定 + 枚举速查 |
 | `schema-shared.sql` | 8 张共享基础设施表 |
 | `seed-anchors.sql` | 跨域共享测试数据锚点 |
+| `docs/knowledge/seed-anchors.md` | D15 固定 UUID 与受控词表清单（供 D05 使用） |
 | `shared-kernel-manifest.yaml` | 共享内核文件与 import 路径 |
 | `roles.md` | 角色权限定义 |
 | `scenes.md` | 场景链路分析 |
@@ -201,4 +205,4 @@ PAIKE_PRINT_BASE_URL=http://localhost:3000
 
 ## 9. 本轮状态
 
-本轮为首轮**设计态**交付：完成架构设计与 Issue 拆解，**不包含代码实现，不执行任何测试**。所有测试对比结论均为设计推演，执行状态一律为「未执行」。
+Phase 0 已进入实现阶段；逐卡片执行结果与验证证据记录在 `docs/trace/runs/v1/test-results/`。设计与 Issue 拆解基准仍以 `docs/trace/runs/v1/` 为准。
