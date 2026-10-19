@@ -65,7 +65,7 @@ describe('error middleware', () => {
   });
 
   it('exposes the shared 404 handler through createApp', async () => {
-    const response = await request(createApp()).get('/api/v1/unknown');
+    const response = await request(await createApp()).get('/api/v1/unknown');
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe('NOT_FOUND');
     expect(response.body.error.requestId).toEqual(expect.any(String));

@@ -50,13 +50,13 @@
 | ID | 用例/入口 | 发起上下文 | 本事务写入的表 | 跨域查询/命令 | 事件与日志 | 事务边界与零写入规则 |
 |----|-----------|------------|----------------|---------------|------------|----------------------|
 | XW-01 | 新增/编辑班级并指定班主任 | registry | `class`；`sys_outbox_event`；必要时 `operation_log` | `resource.TeacherQueryService` 校验教师存在且在职 | `bc.registry.class.created`（新建时） | T1/T3；教师无效或版本冲突时 `class` 不写 |
-| XW-02 | 新增/编辑任课 | resource | `teaching_assignment`；`sys_outbox_event` | `registry.ClassQueryService`、`registry.SubjectQueryService`；场地由 resource 自身校验 | `bc.resource.assignment.configured` | T1/T3；班级/科目无效、重复或版本冲突时整笔回滚 |
+| XW-02 | 新增/编辑/删除任课 | resource | `teaching_assignment`（删除写 `deleted_at`）；`sys_outbox_event` | `registry.ClassQueryService`、`registry.SubjectQueryService`；场地由 resource 自身校验 | `bc.resource.assignment.configured`（`changeType=CREATED/UPDATED/DELETED`） | T1/T3；班级/科目无效、重复或版本冲突时整笔回滚 |
 | XW-03 | 新增/编辑合班课 | resource | `combined_class`、`combined_class_member`；`sys_outbox_event` | `registry.ClassQueryService` 校验全部成员班级 | `bc.resource.combined-class.configured` | T1/T3；成员班级任一无效时父记录与成员均不写 |
 | XW-04 | 新增/编辑走班配置 | resource | `walking_group`、`walking_group_member`；`sys_outbox_event` | `registry.ClassQueryService`、`registry.SubjectQueryService` 校验 | `bc.resource.walking-group.configured` | T1/T3；任一成员/科目无效时整笔回滚 |
 | XW-05 | 删除作息模板 | registry | `schedule_template.deleted_at`；`operation_log` | 查询 `semester.schedule_template_version_id` 引用 | 删除操作日志 | T3；被任一学期钉扎时返回 `REFERENCE_PROTECTED`，零写入 |
 | XW-06 | 删除年级/班级/科目/教师/场地/合班/走班 | 对应主数据上下文 | 本域 `deleted_at`；`operation_log` | registry/resource/timetable/identity 各 query service 汇总引用 | 删除操作日志 | T3；存在任课、班主任、合班、课次、账号等引用时拒绝且零写入 |
 | XW-07 | 教师退校 | resource | `teacher.status='LEFT'`；`sys_outbox_event`；`operation_log` | 同事务调用 identity `DisableTeacherAccount` 写 `sys_user.status='DISABLED'` 并撤销 `sys_session` | `bc.resource.teacher.deactivated` | T2；teacher 状态、账号停用、会话撤销任一失败全部回滚 |
-| XW-08 | 删除教师（无引用） | resource | `teacher.deleted_at`；`sys_outbox_event`；`operation_log` | 同事务调用 identity `DisableTeacherAccount`；跨域引用检查见 XW-06 | `bc.resource.teacher.deactivated` | T2/T3；有引用时先拒绝，不进入账号停用 |
+| XW-08 | 删除教师（无任何引用） | resource | `teacher.deleted_at`；`operation_log` | 跨域引用检查见 XW-06；identity 账号存在即计入引用并拒绝，不写 `sys_user` | 删除操作日志 | T3；有任课、班主任、账号等引用时返回 `REFERENCE_PROTECTED` 且零写入 |
 | XW-09 | 教师一键开通账号 | identity | `sys_user`（含 `teacher_id`）；`sys_audit_log`；`sys_outbox_event` | `resource.TeacherQueryService` 读取工号/姓名/状态 | `bc.resource.teacher.account-provisioned`；安全审计 | T2；账号插入、教师关联、审计、outbox 同一事务；重复开通为幂等读取 |
 | XW-10 | 批量开通教师账号 | identity | 每名教师一行 `sys_user`；`sys_audit_log`；`sys_outbox_event` | 批量读取 `resource.TeacherQueryService` | 每个成功账号一条 provisioned 事件 | 逐账号独立事务；失败账号不影响已成功账号；返回一次性凭据 CSV |
 | XW-11 | 停用/启用/重置密码/角色变更 | identity | `sys_user`、`sys_session`（撤销时）；`sys_audit_log`、`sys_outbox_event` | 角色变更时读取 resource 教师关联 | `bc.identity.user.disabled` / `bc.identity.user.role-changed` | T1/T2；最后一个启用 Admin 保护与不可停用自己先校验，失败零写入 |
@@ -77,6 +77,8 @@
 | XW-26 | 操作日志写入（全部关键操作） | 发起业务上下文 | `operation_log` | 经共享内核 `writeOperationLog`；governance 提供查询模型，不提供跨域写 repository | `bc.governance.operation.logged` | 与业务写入同事务；日志失败业务回滚 |
 | XW-27 | 安全审计写入（认证/账号/越权/导出/打印） | identity/shared | `sys_audit_log` | 共享内核 `writeSecurityAudit` | 无单独业务事件 | 与对应安全操作同事务或失败操作即时追加；追加写，无清理任务 |
 | XW-28 | 领域事件写入（所有生产者） | 各上下文 | `sys_outbox_event` | 无跨域命令 | 本文件 §3 各事件 | 与业务写入同事务；提交后 dispatcher 至少一次投递，消费者按 `eventId` 幂等 |
+
+`POST /teachers` 且 `provisionAccount=true` 时，resource 在同一 T2 事务内先写教师，再调用 identity `ProvisionTeacherAccount`；identity 独占 `sys_user` 写入，任一失败全部回滚。复用 `alreadyExists=true` 结果，不重复插入账号。
 
 ---
 
@@ -100,7 +102,7 @@
 
 ### 4.3 教师账号联动
 
-教师退校/删除引发的账号停用与会话撤销不依赖异步事件；resource 在同一事务内调用 identity 导出的应用命令。`bc.resource.teacher.deactivated` 仅用于通知 timetable/identity 的后续缓存与审计，不得作为停用的唯一手段。
+教师退校引发的账号停用与会话撤销不依赖异步事件；resource 在同一事务内调用 identity 导出的应用命令。`bc.resource.teacher.deactivated` 仅用于通知 timetable/identity 的后续缓存与审计，不得作为停用的唯一手段。A-02 规定账号引用阻止教师删除，因此删除路径不调用账号停用命令；停用账号应走退校。
 
 ### 4.4 导入
 

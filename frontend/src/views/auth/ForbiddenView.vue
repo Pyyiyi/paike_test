@@ -4,15 +4,26 @@ import { useSessionStore } from '@/shared/stores/session';
 
 const router = useRouter();
 const session = useSessionStore();
+
+function goBack(): void {
+  if (window.history.length > 1) {
+    router.back();
+    return;
+  }
+  void router.replace(session.homePath);
+}
 </script>
 
 <template>
   <main class="result-page">
-    <section class="result-card" role="alert">
+    <section class="result-card" role="alert" data-result="403">
       <div class="result-icon" aria-hidden="true">!</div>
       <h1>您没有权限访问此页面</h1>
       <p>当前账号不能查看该功能，请联系教务管理员确认角色权限。</p>
-      <el-button type="primary" @click="router.replace(session.homePath)">返回工作台</el-button>
+      <div class="result-actions">
+        <el-button size="large" @click="goBack">返回上一页</el-button>
+        <el-button type="primary" size="large" @click="router.replace(session.homePath)">返回工作台</el-button>
+      </div>
     </section>
   </main>
 </template>
@@ -58,5 +69,11 @@ p {
   margin: 10px 0 22px;
   color: #657187;
   line-height: 1.7;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
 }
 </style>

@@ -51,7 +51,7 @@
 | POST | `/api/v1/auth/login` | 登录 | 公开 |
 | POST | `/api/v1/auth/logout` | 退出 | 已登录 |
 | GET | `/api/v1/auth/me` | 当前用户 | 已登录 |
-| POST | `/api/v1/auth/change-password` | 改密 | 已登录 |
+| POST | `/api/v1/auth/change-password` | 改密；成功撤销当前会话 | 已登录 |
 
 登录请求：
 

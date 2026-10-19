@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AuthRuntime } from '../../shared/auth/runtime';
+import type { ModuleRouterContext } from '../router-contract';
 import { requireAdmin, requireAuth } from '../../shared/auth/rbac';
 import { ValidationError } from '../../shared/errors/app-error';
 import { asyncHandler } from '../../shared/http/async-handler';
@@ -228,4 +229,11 @@ export function createRegistryRouter(runtime: AuthRuntime): Router {
   );
 
   return router;
+}
+
+export function createRouter(context: ModuleRouterContext): Router | null {
+  if (!context.auth) {
+    return null;
+  }
+  return createRegistryRouter(context.auth);
 }

@@ -18,7 +18,7 @@ let adminPool: Pool;
 let pool: Pool;
 let schema = '';
 let runtime: AuthRuntime;
-let app: ReturnType<typeof createApp>;
+let app: Awaited<ReturnType<typeof createApp>>;
 let passwordHash = '';
 type Agent = ReturnType<typeof request.agent>;
 
@@ -134,7 +134,7 @@ beforeAll(async () => {
     [passwordHash],
   );
   runtime = createAuthRuntime({ config: makeConfig(), pool });
-  app = createApp({ auth: runtime });
+  app = await createApp({ auth: runtime });
 });
 
 afterAll(async () => {
@@ -155,7 +155,7 @@ beforeEach(async () => {
   await pool.query(
     'DELETE FROM sys_outbox_event; DELETE FROM teaching_assignment; DELETE FROM class; DELETE FROM subject_period_rule; DELETE FROM subject; DELETE FROM grade;',
   );
-  app = createApp({ auth: runtime });
+  app = await createApp({ auth: runtime });
 });
 
 describeWithDatabase('D02 registry grade, class, subject and period rules', () => {

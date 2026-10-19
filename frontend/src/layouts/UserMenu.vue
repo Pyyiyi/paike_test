@@ -4,6 +4,7 @@ import { useSessionStore } from '@/shared/stores/session';
 import { ROLE_LABELS } from '@/shared/text/messages';
 
 const emit = defineEmits<{
+  changePassword: [];
   logout: [];
 }>();
 
@@ -24,7 +25,8 @@ const roleLabel = computed(() => (session.user ? ROLE_LABELS[session.user.role] 
     </button>
     <template #dropdown>
       <el-dropdown-menu>
-        <el-dropdown-item @click="emit('logout')">退出登录</el-dropdown-item>
+        <el-dropdown-item @click="emit('changePassword')">修改密码</el-dropdown-item>
+        <el-dropdown-item divided @click="emit('logout')">退出登录</el-dropdown-item>
       </el-dropdown-menu>
     </template>
   </el-dropdown>

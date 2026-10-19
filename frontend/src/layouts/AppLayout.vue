@@ -11,6 +11,10 @@ const router = useRouter();
 const session = useSessionStore();
 const items = computed(() => (session.isAdmin ? ADMIN_NAV : TEACHER_NAV));
 
+function changePassword(): void {
+  void router.push('/change-password');
+}
+
 async function logout(): Promise<void> {
   try {
     await session.logout();
@@ -31,7 +35,7 @@ async function logout(): Promise<void> {
           <SemesterSelector v-if="session.isAdmin" />
           <span v-else class="teacher-context">教师工作台</span>
         </div>
-        <UserMenu @logout="logout" />
+        <UserMenu @change-password="changePassword" @logout="logout" />
       </el-header>
       <el-main class="app-content">
         <RouterView />

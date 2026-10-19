@@ -532,4 +532,4 @@ export function createAuthRuntime(input: { config: AuthConfig; pool: Pool; now?:
 // AuthRuntime.writeAudit(input) binds P0-03 writeSecurityAudit to the injected pool/clock.
 ```
 
-装配约定：`createApp({ auth })` 在注入 `AuthRuntime` 后按 `cookie-parser → session → CSRF → loadCurrentUser → forced-password-guard → auth router` 顺序挂载；未注入时仅暴露健康检查，便于单元测试。
+装配约定：`await createApp({ auth })` 先按 `cookie-parser → session → CSRF → loadCurrentUser → forced-password-guard` 挂载认证栈，再由模块 Hub 自动扫描并以 `/api/v1` 前缀挂载路由；认证模块自行声明 `/auth` 子前缀。未注入 `AuthRuntime` 时认证模块返回 `null`，便于单元测试。
