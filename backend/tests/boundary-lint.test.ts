@@ -45,14 +45,14 @@ describe('context boundary lint gate', () => {
           rules: {
             'import/no-restricted-paths': [
               'error',
-              { zones: createBoundaryZones(['auth', 'timetable']) },
+              { zones: createBoundaryZones(['auth', 'timetable', 'boundary-test-domain']) },
             ],
           },
         },
       ],
     });
 
-    const timetableDir = path.join(cwd, 'backend/src/modules/timetable');
+    const timetableDir = path.join(cwd, 'backend/src/modules/boundary-test-domain');
     mkdirSync(timetableDir, { recursive: true });
     try {
       const [crossDomain] = await eslint.lintText("import '../auth/auth.repository';\n", {

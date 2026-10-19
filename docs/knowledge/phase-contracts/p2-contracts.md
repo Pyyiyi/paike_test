@@ -437,26 +437,42 @@ DRAFT ──逻辑删除（仅未被引用且非 ARCHIVED）──▶ deleted
 |------|------|------|
 | GET | `/statistics/workload?semesterId=&scope=SEMESTER\|WEEK&weekIndex=` | 工作量统计 |
 
-响应行：
+响应：
 
 ```json
 {
-  "teacherId": "uuid",
-  "teacherName": "张老师",
-  "regular": 12,
-  "consecutive": 4,
-  "combined": 2,
-  "overtime": 0,
-  "total": 18
+  "data": {
+    "items": [
+      {
+        "teacherId": "uuid",
+        "teacherName": "张老师",
+        "regular": 12,
+        "consecutive": 4,
+        "combined": 2,
+        "overtime": 0,
+        "total": 18
+      }
+    ],
+    "scope": "SEMESTER",
+    "weekIndex": null,
+    "weekCount": 18,
+    "publishedPlanId": "uuid",
+    "message": null
+  }
 }
 ```
 
 口径（A-16）：
 
-- 每条课次只入一类，优先级：合班 > 连堂 > 常规。
-- 合班按 1 节计；连堂按实际节次计；加班恒为 0，页面显示「细则 V1.1」。
-- 周口径按指定教学周的 `ALL + 对应奇偶` 课次计算；学期口径按全部教学周累计。
-- 统计必须来自当前正式课表（`PUBLISHED`）；无正式课表时返回空并提示「请先发布课表」。
+- 每条有效课次只入一类，优先级：合班 > 连堂 > 常规。
+- 合班按 1 节计（不乘参与班级数）；连堂按实际节次计；加班恒为 0，不参与合计，页面显示「细则 V1.1」。
+- `total = regular + consecutive + combined`。
+- 连堂判定：同 `unitType + unitId + teacherId + subjectId + weekday` 的非合班课次，在该有效周存在相邻 `period`。
+- 周口径：`effective = ALL + parityForWeekIndex(weekIndex)`，只分类该周有效课次。
+- 学期口径：对 `1..weekCount` 每个教学周分别执行有效课次分类，再按教师汇总。`ALL` 每周有效，`ODD/EVEN` 只在对应该奇偶周有效。
+- 统计必须来自当前正式课表（`PUBLISHED`）；无正式课表时 `items=[]`、`publishedPlanId=null`、`message="请先发布课表"`。
+- `WEEK` 必须提供 `weekIndex` 且位于 `1..weekCount`；`SEMESTER` 返回 `weekIndex=null`。
+- 教师姓名通过 resource `TeacherQueryService` 读取；跨年级任课按 `teacherId` 累计，不设年级维度。
 
 ---
 

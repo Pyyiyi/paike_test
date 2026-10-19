@@ -252,7 +252,7 @@ routes:
   name: statistics
   title: 工作量统计
   card: D11
-  component: frontend/src/shared/views/PlaceholderView.vue
+  component: frontend/src/views/statistics/WorkloadStatisticsView.vue
   navigationGroup: statistics
   accessSource: navigation
   rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户

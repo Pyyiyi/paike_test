@@ -7853,6 +7853,14 @@ components:
               - string
               - 'null'
               format: uuid
+            weekCount:
+              type: integer
+              minimum: 1
+            message:
+              type:
+              - string
+              - 'null'
+              description: 无 PUBLISHED 方案时为“请先发布课表”
           required:
           - items
           - scope
