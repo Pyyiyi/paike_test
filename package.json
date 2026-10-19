@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "tsx backend/src/scripts/migrate.ts"
+    "db:migrate": "tsx backend/src/scripts/migrate.ts",
+    "db:seed": "tsx backend/src/scripts/seed.ts"
   },
   "dependencies": {
     "argon2": "^0.41.1",
