@@ -6,7 +6,7 @@
 
 | 文件 | 冻结内容 |
 |------|----------|
-| `openapi.yaml` | Phase 0–3 共 113 个操作：6 个 P0、49 个 P1、27 个 P2、31 个 P3；请求/响应 schema、错误码、CSRF 与权限扩展 |
+| `openapi.yaml` | Phase 0–3 共 114 个操作：6 个 P0、50 个 P1、27 个 P2、31 个 P3；请求/响应 schema、错误码、CSRF 与权限扩展 |
 | `schema.sql` | 8 张共享表 + 26 张领域/应用支撑表，共 34 张；26 个 PostgreSQL enum 类型 |
 | `events.yaml` | 25 个领域事件；payload、生产者、消费者、聚合类型、`schemaVersion: 1` |
 | `naming.yaml` | 28 个枚举（26 个 SQL enum + 健康/错误码 API 枚举）、14 个错误码、角色、表所有权、字段字典 |
@@ -40,6 +40,9 @@ python3 contracts/validate.py
 4. `/schedule-templates/{id}/versions` 与 `/schedule-templates/versions/{versionId}`、`/import/templates/{module}` 与 `/import/{module}/preview`、`/import/batches/{batchId}` 是 Phase 契约既有路径；Redocly 的 `no-ambiguous-paths` 规则在 `redocly.yaml` 中关闭，路径本身不改。
 5. OpenAPI 同时冻结 P0 认证与健康检查接口，因为 P1–P3 全部受保护端点依赖其会话、CSRF、错误与响应封装；未新增 PRD 能力。
 6. `routes.yaml` 额外登记登录、强制改密、403、404 四个状态路由；它们是 P0-08 已定义页面，不是新业务入口。
+7. D03 增补 `POST /teachers/{id}/restore`，补齐 PRD F5/A-02 的恢复动作；同时将任课 `weeklyPeriods` 下限收紧为 1，并登记有效任课 `(teacherId, classId, subjectId)` 唯一索引。
+8. A-02 优先于旧 XW-08 表述：账号引用阻止教师删除，删除路径不执行账号停用；退校仍是账号停用与主数据保留的独立路径。
+9. `bc.resource.assignment.configured` 增补必填 `changeType=CREATED/UPDATED/DELETED`，使 D05 能区分任课保存与逻辑删除。
 
 ## 实现通知
 

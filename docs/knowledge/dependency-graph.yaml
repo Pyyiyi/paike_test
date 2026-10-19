@@ -237,6 +237,12 @@ events:
     payload: { teacherId, status, occurredAt, occurredBy }
     card: D03
 
+  - name: bc.resource.assignment.configured
+    producer: resource
+    consumers: [timetable]
+    payload: { assignmentId, teacherId, subjectId, classId, changeType, occurredAt, occurredBy }
+    card: D03
+
   - name: bc.timetable.plan.generated
     producer: timetable
     consumers: [governance]
