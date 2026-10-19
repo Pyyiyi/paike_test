@@ -239,7 +239,8 @@ export function writeSecurityAudit(input: SecurityAuditInput): Promise<void>;
 
 规则：
 
-- 操作日志内容必须可直接展示，例如「发布 2026 秋季正式课表（方案 2026秋-v4）」。
+- 操作日志内容必须可直接展示，例如「发布 2026 秋季正式课表（方案 2026秋-v4）」；`action` 与 `content` 均为中文，禁止错误码或英文枚举。
+- 每个成功业务命令只在同一 `tx` 内调用一次；失败不得留下孤立日志。D01 `archive/switchCurrent` 是该学期命令的日志写入点，D07 编排不得重复写。
 - 所有日志写入禁止记录密码、Cookie、CSRF Token。
 - 验收标准别名：`enqueue` = `appendEvent`；`operationLog.write` = `writeOperationLog`；`securityAudit.write` = `writeSecurityAudit`。
 - 所有时间写入经 `Clock` 注入；测试使用 `fixedClock`，业务使用 `systemClock`。

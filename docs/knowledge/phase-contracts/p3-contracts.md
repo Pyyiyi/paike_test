@@ -23,6 +23,8 @@
 
 ### 2.1 governance
 
+设计迁移：`docs/knowledge/designs/0030_governance.sql`；实现轮次按 `0030_governance.sql` 落库。
+
 ```sql
 CREATE TYPE operation_module AS ENUM (
   'DELETE','PUBLISH','OVERWRITE','SWITCH_SEMESTER','IMPORT','ARCHIVE','ADJUST',
@@ -31,28 +33,34 @@ CREATE TYPE operation_module AS ENUM (
 
 operation_log (
   log_id uuid pk,
-  operator_id uuid not null,
-  operator_name text not null,        -- 快照，用户改名后仍可追溯
+  operator_id uuid not null references sys_user,
+  operator_name text not null,        -- 操作时姓名快照
   module operation_module not null,
-  action text not null,               -- 中文动作，如「发布」「覆盖发布」
-  content text not null,              -- 中文、可直接展示
+  action text not null,               -- 中文动作，如「发布」
+  content text not null,              -- 中文、可直接展示；禁止错误码/英文枚举
   target_type text not null,
-  target_id uuid,
+  target_id uuid not null,            -- 七类关键操作必须有对象
   request_id text,
   created_at timestamptz not null default now()
 );
--- 追加写：无 UPDATE/DELETE API，无清理任务（A-20）
+-- 索引：created_at DESC; (operator_id, created_at DESC); (module, created_at DESC);
+--       (operator_id, module, created_at DESC)；均以 log_id DESC 稳定排序。
+--       (target_type, target_id, created_at DESC) 供对象反查。
+-- 追加写触发器拒绝 UPDATE/DELETE；无更新/删除 API，无清理任务（A-20）。
 
 semester_archive (
   archive_id uuid pk,
   semester_id uuid not null unique,
-  plan_id uuid not null,              -- 存档时的正式方案
+  plan_id uuid not null,              -- 存档时的唯一正式方案
   archived_by uuid not null,
   archived_at timestamptz not null,
-  summary jsonb not null,             -- { planName, classCount, lessonCount, conflictCount }
-  created_at
+  summary jsonb not null,             -- 冻结摘要，含 snapshotHash
+  created_at timestamptz not null default now()
 );
+-- 独立追加写触发器；无更新/删除 API。
 ```
+
+`summary` 固定包含 `semesterName/academicYear/term/planName/planVersion/publishedAt/classCount/lessonCount/unscheduledCount/conflictCount/snapshotHash`。
 
 ### 2.2 identity
 
@@ -122,46 +130,71 @@ print_template (
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/operation-logs?operatorId=&from=&to=&module=&page=&pageSize=` | 日志查询，按时间倒序 |
-| GET | `/operation-logs/:logId` | 详情 |
+| GET | `/operation-logs?operatorId=&from=&to=&module=&page=&pageSize=` | Admin 日志查询，时间倒序 |
+| GET | `/operation-logs/:logId` | 日志详情 |
 | POST | `/semesters/:id/archive` | 学期存档 |
 | GET | `/semesters/:id/archive` | 存档信息 |
 | POST | `/semesters/:id/switch` | 切换当前学期（含草稿守卫） |
-| GET | `/archive-status?semesterId=` | 存档前置检查（是否有 PUBLISHED） |
+| GET | `/archive-status?semesterId=` | 存档前置检查 |
 
-**存档**
+**日志查询**
 
-请求：`{ "confirm": true }`（前端已完成二次确认）
+- 仅 Admin；Teacher 返回 `403 FORBIDDEN`。
+- `operatorId`、`module` 精确匹配；`from` 为包含边界（`>=`），`to` 为不包含边界（`<`）。
+- 排序固定 `created_at DESC, log_id DESC`；分页 `page` 从 1 开始、`pageSize` 默认 20 最大 100。
+- 无更新/删除 API，无清理任务；返回白名单字段，前端不提供编辑/删除/归档按钮。
+- 七类关键操作为 `DELETE/PUBLISH/OVERWRITE/SWITCH_SEMESTER/IMPORT/ARCHIVE/ADJUST`；D05/D21 的 `GENERATE/SAVE_AS/IGNORE_ONCE/LOCK/UNLOCK` 为显式审计扩展，不改变 F18 七类口径。
 
-前置：当前学期存在 `PUBLISHED` 方案；否则 `409 STATE_CONFLICT`，提示「请先发布正式课表再存档」。
+**存档前置与请求**
 
-事务内：学期 `→ ARCHIVED`；当前 `PUBLISHED` 方案 `→ ARCHIVED`；写 `semester_archive`；写操作日志；追加 `bc.timetable.plan.archived` 与 `bc.registry.semester.status-changed`。
+`GET /archive-status` 返回 `semesterId/canArchive/reason/publishedPlanId/publishedPlanName`；只读，不写日志或 outbox。
+
+请求：`{ "confirm": true }`（前端已完成二次确认）；未确认 400 且零写入。
+
+前置：目标学期存在唯一 `PUBLISHED` 方案；否则 `409 STATE_CONFLICT`，消息固定为「请先发布正式课表再存档」，零写入。
+
+事务内：
+
+1. 经 registry 查询服务锁定目标学期；不存在 404，已存档 409。
+2. 经 timetable 查询服务锁定同学期 `PUBLISHED` 方案；生成冻结摘要与 `snapshotHash`。
+3. 调用 `timetable.PlanLifecycleService.archivePublished(tx, planId, actor)`：正式方案 `→ ARCHIVED` 并追加 `bc.timetable.plan.archived`。
+4. 调用 `registry.SemesterLifecycleService.archive(tx, semesterId, actor)`：学期 `→ ARCHIVED`、`is_current=false`，写唯一 `ARCHIVE` 日志并追加 `bc.registry.semester.status-changed`。
+5. governance 写一条 `semester_archive`；唯一键防止重复存档。
+6. 任一步失败全部回滚；禁止 D07 直接 DML registry/timetable 表。
+
+**存档后只读**
+
+- 已存档学期内的编辑、删除、方案生成/发布/覆盖、冲突忽略、锁定、调课、导入提交等写操作均返回 `409 STATE_CONFLICT`，消息「该学期已存档，只能查看或导出」。
+- 课表查看、统计、空闲、日志、存档详情、Excel 导出、打印预览保持可用。
+- 已存档方案、课次、`semester_archive.summary` 和日志不得改变；其他未引用学期/模板删除不影响该存档（A-17/TC-CM-003）。
 
 **切换学期**
 
 请求：
 
 ```json
-{ "draftResolution": "SAVE", "planVersion": 12 }
+{ "draftResolution": "SAVE", "draftPlanId": "uuid", "planVersion": 12 }
 ```
 
-`draftResolution ∈ SAVE / DISCARD / CANCEL`。
+`draftResolution ∈ SAVE / DISCARD / CANCEL`。服务端“草稿”指 `timetable_plan.status='DRAFT'` 的持久化方案；浏览器未提交表单不是服务端状态，选择 SAVE 时客户端必须先调用 D05 保存命令落库，再以返回版本调用本接口。存在多个 DRAFT 时 `draftPlanId` 必填。
 
 | 场景 | 行为 |
 |------|------|
-| 当前学期无草稿 | 直接切换，忽略该字段 |
-| 有草稿且 `SAVE` | 保存草稿（校验 `planVersion`）后切换 |
-| 有草稿且 `DISCARD` | 丢弃未保存编辑；从未保存的草稿删除；切换 |
-| 有草稿且 `CANCEL` | 不切换、不写任何数据，返回 `200` |
-| 有草稿但未传字段 | `409 DRAFT_EXISTS`，`details` 返回草稿 id/名称，前端弹三选一 |
+| 目标学期 `ARCHIVED` | `409 STATE_CONFLICT`「已存档学期不能切换为当前学期」 |
+| 当前学期无草稿 | 直接切换，忽略草稿字段 |
+| 有草稿但未传 `draftResolution` | `409 DRAFT_EXISTS`，消息「当前学期存在未发布草稿，请选择保存、放弃或取消」，`details.drafts` 返回 `planId/name/version/updatedAt` |
+| 有草稿且 `SAVE` | 校验所选草稿仍为 DRAFT 且 `planVersion` 匹配；草稿保留；切换 |
+| 有草稿且 `DISCARD` | 校验版本后经 D05 `discardDraft` 逻辑删除所选 DRAFT；切换 |
+| 有草稿且 `CANCEL` | 返回 200 与当前学期；不切换、不删草稿、不写日志/outbox（零写入） |
+| 多个 DRAFT 但 SAVE/DISCARD 未给 `draftPlanId` | 400；不得猜测草稿 |
 
-切换成功后更新 `semester.is_current`（同一事务内先清旧值）；写日志；追加状态事件。目标学期为 `ARCHIVED` 时拒绝。
+成功切换在同一事务内：D01 `switchCurrent` 清旧 `is_current`、设目标值并写唯一 `SWITCH_SEMESTER` 日志；追加 `bc.registry.semester.current-changed { previousSemesterId, currentSemesterId }`；DISCARD 的草稿删除同事务。
 
-**日志规则**
+**日志字段与内容**
 
-- 只追加，无更新/删除 API，无自动清理任务。
-- `content` 必须中文可读，例如「发布 2026 秋季正式课表（方案 2026秋-v4）」。
-- 按操作人、时间范围、模块筛选；空结果给出友好空状态。
+- 完整字段：操作人（ID + 姓名快照）、时间、模块、中文动作、中文内容、对象类型、对象 ID；请求 ID 可选。
+- `content` 示例：「发布 2026 秋季正式课表（方案 2026秋-v4）」「切换当前学期为「2027 春季」」「存档学期「2026 秋季」（方案 2026秋-v4）」。
+- D01 的 `archive/switchCurrent` 是该命令的日志写入点；D07 编排不得写第二条同命令日志。
 
 ### 3.2 身份（D08）
 
@@ -309,6 +342,7 @@ print_template (
 | 事件 | 生产者 | 消费者 |
 |------|--------|--------|
 | `bc.registry.semester.status-changed` | D07（调用 registry 生命周期服务） | timetable、governance |
+| `bc.registry.semester.current-changed` | D01/D07（调用 registry 生命周期服务） | timetable、governance |
 | `bc.timetable.plan.archived` | D07 | governance、registry |
 | `bc.governance.operation.logged` | D07 | — |
 | `bc.identity.user.created` | D08 | — |

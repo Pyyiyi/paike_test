@@ -8,7 +8,7 @@
 |------|----------|
 | `openapi.yaml` | Phase 0–3 共 114 个操作：6 个 P0、50 个 P1、27 个 P2、31 个 P3；请求/响应 schema、错误码、CSRF 与权限扩展 |
 | `schema.sql` | 8 张共享表 + 26 张领域/应用支撑表，共 34 张；26 个 PostgreSQL enum 类型 |
-| `events.yaml` | 25 个领域事件；payload、生产者、消费者、聚合类型、`schemaVersion: 1` |
+| `events.yaml` | 26 个领域事件；payload、生产者、消费者、聚合类型、`schemaVersion: 1` |
 | `naming.yaml` | 28 个枚举（26 个 SQL enum + 健康/错误码 API 枚举）、14 个错误码、角色、表所有权、字段字典 |
 | `routes.yaml` | 28 个前端路由、菜单组、角色来源与数据范围 |
 | `cross-context-writes.md` | 28 个跨域写入点 `XW-01`–`XW-28` 与事务边界 |
@@ -34,8 +34,8 @@ python3 contracts/validate.py
 
 ## 已登记偏差
 
-1. `DRAFT_EXISTS` 出现在 `spac.md` §6.1 与 `p3-contracts.md` §3.1，但 `conventions.md` §3.2 漏列；契约按前两者纳入 409 错误码。
-2. `DATABASE_UNAVAILABLE`（503）由已落地的 P0-03 健康检查与错误基线使用，`conventions.md` §3.2 漏列；契约纳入并用于 `GET /health`。
+1. `DRAFT_EXISTS` 已在 D07 设计态补入 `conventions.md` §3.2，语义务必按「切换学期草稿守卫」使用。
+2. `DATABASE_UNAVAILABLE`（503）已补入 `conventions.md` §3.2，用于健康检查与数据库不可用路径。
 3. `p3-contracts.md` 的 `import_status`、`paper_size`、`paper_orientation` 是文档别名；契约统一冻结为 `conventions.md` §10 的 `import_batch_status`、`print_paper_size`、`print_orientation`，值不变。
 4. `/schedule-templates/{id}/versions` 与 `/schedule-templates/versions/{versionId}`、`/import/templates/{module}` 与 `/import/{module}/preview`、`/import/batches/{batchId}` 是 Phase 契约既有路径；Redocly 的 `no-ambiguous-paths` 规则在 `redocly.yaml` 中关闭，路径本身不改。
 5. OpenAPI 同时冻结 P0 认证与健康检查接口，因为 P1–P3 全部受保护端点依赖其会话、CSRF、错误与响应封装；未新增 PRD 能力。
@@ -61,6 +61,14 @@ D01–D11、INT-01/INT-02 实现时以本目录为准：
 - 字段、枚举、状态、错误码、路由角色不得偏离；需要偏离时先修改契约并登记原因。
 - 跨域写入只能按 `cross-context-writes.md` 的事务边界调用应用服务。
 - 迁移后的实际库结构必须能由 `schema.sql` 覆盖；INT-03 从实现反写契约时保留版本号并记录差异。
+
+## D07 设计态补充（待 INT-03 归档）
+
+1. `operation_log.target_id` 收紧为 NOT NULL，并补录 `created_at/log_id`、操作人、模块及组合筛选索引。
+2. `semester_archive.summary` 冻结为明确字段并包含 `snapshotHash`；`semester_archive` 纳入追加写触发器。
+3. `SwitchSemesterRequest` 增加可选 `draftPlanId`；多个持久化 DRAFT 时必填，禁止服务端猜测草稿。
+4. 新增 `bc.registry.semester.current-changed`，用于表达 `is_current` 切换而非伪造 `status-changed`。
+5. `conventions.md` 的 `operation_module` 对齐 D05/D21 的 12 个冻结值；七类 F18 口径不变。
 
 ## D01 实现偏差（待 INT-03 归档）
 

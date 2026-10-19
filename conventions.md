@@ -144,9 +144,11 @@ modules/<context>/
 | 409 | `DUPLICATE` | 该名称已存在，请更换后重试 | 唯一键冲突 |
 | 409 | `REFERENCE_PROTECTED` | 该数据正被使用，暂时无法删除 | 引用保护 |
 | 409 | `STATE_CONFLICT` | 当前状态不允许此操作 | 状态机守卫 |
+| 409 | `DRAFT_EXISTS` | 当前学期存在未发布草稿 | 切换学期草稿守卫 |
 | 413 | `FILE_TOO_LARGE` | 文件超过 20 MB，请拆分后重试 | 上传超限 |
 | 422 | `IMPORT_ROW_ERROR` | 文件中有无法导入的行 | 导入部分失败 |
 | 423 | `ACCOUNT_LOCKED` | 登录失败次数过多，请 15 分钟后再试 | 账号锁定 |
+| 503 | `DATABASE_UNAVAILABLE` | 数据库暂时不可用，请稍后重试 | 数据库连接失败 |
 | 500 | `INTERNAL_ERROR` | 系统暂时不可用，请稍后重试 | 未预期异常 |
 
 > 错误码只用于程序判断；界面展示 `message`，不得直接展示 `code`。
@@ -466,7 +468,7 @@ ENABLED ⇄ DISABLED
 | `import_batch_status` | `COMPLETED` / `PARTIAL` / `FAILED` | 全部成功 / 部分成功 / 失败 |
 | `export_dimension` | `MASTER_DATA` / `TIMETABLE` / `STATISTICS` | 基础数据 / 课表 / 工作量统计 |
 | `timetable_dimension` | `CLASS` / `TEACHER` / `SCHOOL` / `VENUE` / `ASSIGNMENT` | 班级 / 教师 / 全校 / 场地 / 任课 |
-| `operation_module` | `DELETE` / `PUBLISH` / `OVERWRITE` / `SWITCH_SEMESTER` / `IMPORT` / `ARCHIVE` / `ADJUST` | 删除 / 发布 / 覆盖 / 切换学期 / 导入 / 存档 / 调课 |
+| `operation_module` | `DELETE` / `PUBLISH` / `OVERWRITE` / `SWITCH_SEMESTER` / `IMPORT` / `ARCHIVE` / `ADJUST` / `GENERATE` / `SAVE_AS` / `IGNORE_ONCE` / `LOCK` / `UNLOCK` | 删除 / 发布 / 覆盖 / 切换学期 / 导入 / 存档 / 调课 / 生成 / 另存方案 / 只本次忽略 / 锁定课次 / 解锁课次 |
 | `print_paper_size` | `A4` / `A3` | A4 / A3 |
 | `print_orientation` | `PORTRAIT` / `LANDSCAPE` | 纵向 / 横向 |
 

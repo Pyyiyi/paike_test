@@ -134,6 +134,7 @@
 | TC-AT-003 | Teacher 仅可见本人与关联班级课表 |
 | TC-AT-004 | Teacher 导航不出现管理入口 |
 | TC-AT-009 | Teacher 空闲查询对象固定本人，越权请求 403 |
+| LG-P-01 | Teacher 访问 `/operation-logs`、`/operation-logs/:id`、`/semesters/:id/archive`、`/semesters/:id/switch`、`/archive-status` 均 403；Admin 可用 |
 | AU-P-01 | Teacher 访问 `/users`、`/users/:id`、角色/停用/启用/重置/开通/批量开通均 403 |
 | AU-P-02 | Teacher 访问 `/semesters`、`/timetable-plans`、`/grades`、`/subjects`、`/teachers`、`/venues`、`/operation-logs`、`/exports`、`/print-templates`、`/import` 均 403 |
 | AU-R-01 | 角色变更下一请求生效，无需重新登录 |

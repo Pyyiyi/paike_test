@@ -409,16 +409,16 @@ DRAFT --delete--> logical deleted
 
 | 动作 | module | action |
 |------|--------|--------|
-| 删除草稿 | `DELETE` | `DELETE_DRAFT` |
+| 删除草稿 | `DELETE` | 删除草稿 |
 | 新建/重命名草稿 | 不写七类关键操作日志 | 不适用 |
-| 生成/重新生成 | `GENERATE` | `GENERATE_PLAN` |
-| 另存 | `SAVE_AS` | `SAVE_AS_PLAN` |
-| 发布 | `PUBLISH` | `PUBLISH_PLAN` |
-| 覆盖发布 | `OVERWRITE` | `OVERWRITE_PLAN` |
-| 只本次忽略 | `IGNORE_ONCE` | `IGNORE_CONFLICT_ONCE` |
-| 锁定/解锁 | `LOCK` / `UNLOCK` | `LOCK_LESSON` / `UNLOCK_LESSON` |
+| 生成/重新生成 | `GENERATE` | 生成方案 |
+| 另存 | `SAVE_AS` | 另存方案 |
+| 发布 | `PUBLISH` | 发布 |
+| 覆盖发布 | `OVERWRITE` | 覆盖发布 |
+| 只本次忽略 | `IGNORE_ONCE` | 只本次忽略 |
+| 锁定/解锁 | `LOCK` / `UNLOCK` | 锁定课次 / 解锁课次 |
 
-操作日志、outbox 与业务写入必须是同一事务；任一失败全部回滚。`conflict_ignore` 中保留对象快照，旧冲突明细删除后仍可审计。
+`action` 固定写中文动作，不得写英文代码；操作日志、outbox 与业务写入必须是同一事务，任一失败全部回滚。`conflict_ignore` 中保留对象快照，旧冲突明细删除后仍可审计。
 
 ## 8. 前端设计
 

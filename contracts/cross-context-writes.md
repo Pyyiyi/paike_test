@@ -61,9 +61,9 @@
 | XW-10 | 批量开通教师账号 | identity | 每名教师一行 `sys_user`；`sys_audit_log`；`sys_outbox_event` | 批量读取 `resource.TeacherQueryService` | 每个成功账号一条 provisioned 事件 | 逐账号独立事务；失败账号不影响已成功账号；返回一次性凭据 CSV |
 | XW-11 | 停用/启用/重置密码/角色变更 | identity | `sys_user`、`sys_session`（撤销时）；`sys_audit_log`、`sys_outbox_event` | 角色变更时读取 resource 教师关联 | `bc.identity.user.disabled` / `bc.identity.user.role-changed` | T1/T2；最后一个启用 Admin 保护与不可停用自己先校验，失败零写入 |
 | XW-12 | 学期存档 | governance | `semester.status='ARCHIVED'`、当前 `timetable_plan.status='ARCHIVED'`、`semester_archive`、`operation_log`、`sys_outbox_event` | `registry.SemesterLifecycleService`、`timetable.PlanLifecycleService`、`timetable.PlanQueryService` | `bc.timetable.plan.archived`、`bc.registry.semester.status-changed` | T2；无 `PUBLISHED` 方案返回 409；学期、方案、存档、日志、outbox 同一事务 |
-| XW-13 | 切换当前学期：`DISCARD` | governance | 目标/旧 `semester.is_current`；删除未保存草稿（如有）；`operation_log`、`sys_outbox_event` | `timetable.PlanLifecycleService` 丢弃草稿；`registry.SemesterLifecycleService` 切换当前值 | 学期状态事件、操作日志 | T2；目标学期 `ARCHIVED` 或版本不符时整笔回滚 |
-| XW-14 | 切换当前学期：`SAVE` | governance | 草稿方案及课次/冲突结果、`semester.is_current`、`operation_log`、`sys_outbox_event` | `timetable.PlanLifecycleService` 校验 `planVersion` 并保存草稿后切换 | 学期状态事件、操作日志 | T2；草稿保存失败则不切换；同一事务先清旧 `is_current` 再设新值 |
-| XW-15 | 切换当前学期：`CANCEL` | governance | 无 | 仅检查草稿是否存在 | 无 | 返回 200 且零写入；不得创建日志或 outbox |
+| XW-13 | 切换当前学期：`DISCARD` | governance | 目标/旧 `semester.is_current`；所选 DRAFT 逻辑删除；`operation_log`、`sys_outbox_event` | `timetable.PlanLifecycleService.discardDraft` 校验并删除所选草稿；`registry.SemesterLifecycleService.switchCurrent` 切换当前值 | `bc.registry.semester.current-changed`、操作日志 | T2；目标学期 `ARCHIVED`、版本不符或草稿非 DRAFT 时整笔回滚 |
+| XW-14 | 切换当前学期：`SAVE` | governance | `semester.is_current`、`operation_log`、`sys_outbox_event` | 客户端已先经 D05 保存草稿；`timetable.PlanQueryService` 校验所选 DRAFT 与 `planVersion`，`registry.SemesterLifecycleService.switchCurrent` 切换 | `bc.registry.semester.current-changed`、操作日志 | T2；草稿版本不符则不切换；同一事务先清旧 `is_current` 再设新值 |
+| XW-15 | 切换当前学期：`CANCEL` | governance | 无 | 只读检查目标学期、草稿与版本 | 无 | 返回 200 且零写入；不得创建/更新/删除日志、草稿或 outbox |
 | XW-16 | 生成/重新生成课表 | timetable | `timetable_plan` 结果字段、`lesson`、`lesson_class`、`unscheduled_lesson`、`conflict_detail`、`operation_log`、`sys_outbox_event` | registry/resource 的 query services 读取一次输入快照 | `bc.timetable.plan.generated` | T1；先替换旧结果再写入新结果，失败回滚到原方案；跨域依赖只读 |
 | XW-17 | 发布/覆盖发布 | timetable | 新方案 `PUBLISHED`；旧正式方案 `SUPERSEDED`；`operation_log`、`sys_outbox_event` | 查询学期未存档、当前正式方案 | `bc.timetable.plan.published`；操作日志 `PUBLISH` / `OVERWRITE` | T1；新旧两个方案状态在同一事务切换，任一失败全部回滚 |
 | XW-18 | 只本次忽略冲突 | timetable | `conflict_detail.resolution='IGNORED_ONCE'`、`timetable_plan.has_manual_exemption`、`conflict_ignore`、`operation_log`、`sys_outbox_event` | 无跨域写；读取冲突可归因配置 | `bc.timetable.conflict.ignored-once`；操作日志 | T1；不可忽略类型先拒绝，配置表零写入 |
@@ -98,7 +98,7 @@
 
 ### 4.2 学期切换
 
-`SAVE`、`DISCARD`、`CANCEL` 三种分支必须在任何业务写入前确定。`CANCEL` 零写入；`SAVE` 的草稿版本校验与 `is_current` 切换同事务；`DISCARD` 的未保存草稿删除与切换同事务。
+`SAVE`、`DISCARD`、`CANCEL` 三种分支必须在任何业务写入前确定。服务端草稿指持久化 `DRAFT` 方案；`CANCEL` 零写入；`SAVE` 校验所选草稿与 `planVersion` 后保留草稿并切换；`DISCARD` 逻辑删除所选草稿并与 `is_current` 切换同事务。
 
 ### 4.3 教师账号联动
 
