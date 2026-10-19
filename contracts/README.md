@@ -43,6 +43,7 @@ python3 contracts/validate.py
 7. D03 增补 `POST /teachers/{id}/restore`，补齐 PRD F5/A-02 的恢复动作；同时将任课 `weeklyPeriods` 下限收紧为 1，并登记有效任课 `(teacherId, classId, subjectId)` 唯一索引。
 8. A-02 优先于旧 XW-08 表述：账号引用阻止教师删除，删除路径不执行账号停用；退校仍是账号停用与主数据保留的独立路径。
 9. `bc.resource.assignment.configured` 增补必填 `changeType=CREATED/UPDATED/DELETED`，使 D05 能区分任课保存与逻辑删除。
+10. D08 设计态补充：`User` 增加 `teacherName`、`version`、`lastLoginAt`；`POST /users` 返回一次性凭据（`ProvisioningResult`）；停用/启用携带 `version`；批量开通增加 `teacherIds` 请求体与 UTF-8 BOM CSV 响应；`uq_sys_user_username_lower` 大小写不敏感唯一索引登记入 `schema.sql`；`bc.identity.user.created/disabled/role-changed` 登记入 `dependency-graph.yaml`。
 
 ## 实现通知
 

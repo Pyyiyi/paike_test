@@ -3586,7 +3586,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserEnvelope'
+                $ref: '#/components/schemas/ProvisioningResultEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3741,6 +3741,12 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserVersionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3780,6 +3786,12 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserVersionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3896,6 +3908,12 @@ paths:
       x-phase: P3
       x-required-roles:
       - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchProvisionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4761,17 +4779,33 @@ components:
           - string
           - 'null'
           format: uuid
+        teacherName:
+          type:
+          - string
+          - 'null'
         mustChangePassword:
           type: boolean
         status:
           $ref: '#/components/schemas/AccountStatus'
+        version:
+          type: integer
+          minimum: 1
+        lastLoginAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - userId
       - username
       - displayName
       - role
       - teacherId
+      - teacherName
       - mustChangePassword
+      - status
+      - version
+      - lastLoginAt
     CsrfData:
       type: object
       properties:
@@ -6701,6 +6735,7 @@ components:
           type:
           - string
           - 'null'
+          description: V1.0 不启用；初始密码由服务端随机生成并仅返回一次
       required:
       - username
       - displayName
@@ -6732,6 +6767,26 @@ components:
       required:
       - role
       - version
+    UserVersionRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    BatchProvisionRequest:
+      type: object
+      properties:
+        teacherIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+      required:
+      - teacherIds
     ResetPasswordRequest:
       type: object
       properties: {}

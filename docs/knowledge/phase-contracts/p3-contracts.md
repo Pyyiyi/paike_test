@@ -58,9 +58,11 @@ semester_archive (
 ```sql
 -- 复用 Phase 0 的 sys_user；无新增表
 -- 约束：username 唯一（大小写不敏感）、teacher_id 唯一（非空时一对一）
-CREATE UNIQUE INDEX uq_sys_user_teacher ON sys_user (teacher_id) WHERE teacher_id IS NOT NULL;
-CREATE UNIQUE INDEX uq_sys_user_username_lower ON sys_user (lower(username));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_user_username_lower ON sys_user (lower(username));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_user_teacher ON sys_user (teacher_id) WHERE teacher_id IS NOT NULL;
 ```
+
+设计迁移草案：`docs/knowledge/designs/0031_identity_indexes.sql`；详细字段、API、权限与流程见 `docs/knowledge/designs/D08-identity-user-provisioning.md`。
 
 ### 2.3 exchange（应用模块支撑表）
 
@@ -171,12 +173,23 @@ print_template (
 
 1. `username` 全局唯一（大小写不敏感）；教师账号 `username = employeeNo`；`teacherId` 一对一。
 2. `role=TEACHER` 必须提供 `teacherId`；`role=ADMIN` 必须为空。该约束由数据库检查约束与服务端双重保证。
-3. 重复开通幂等：返回既有账号并标记 `alreadyExists=true`，不新增。
-4. 初始密码随机 ≥12 位，仅响应中返回一次；`must_change_password=true`；不写日志明文。
-5. 角色仅 `ADMIN` / `TEACHER`；每次请求从数据库读取角色（A-18）。
-6. 不允许停用/降级最后一个启用中的 Admin；不允许停用自己。
-7. 停用账号立即撤销其全部会话；角色变更在下一请求生效。
-8. 所有账号操作写安全审计；教师退校事件联动停用账号（M-22），复职不自动启用。
+3. 重复开通幂等：返回既有账号并标记 `alreadyExists=true`，不新增、不改密。
+4. 初始密码随机 ≥12 位，仅响应中返回一次；`must_change_password=true`；不写日志明文。新建用户与重置密码分别返回一次性凭据；用户详情/列表永不返回密码字段。
+5. 角色仅 `ADMIN` / `TEACHER`；每次请求从数据库读取角色（A-18）；角色变更下一请求生效，无需重新登录。
+6. 不允许停用/降级最后一个启用中的 Admin；不允许停用自己；两种情况返回 `409 STATE_CONFLICT`（`LAST_ADMIN` / `SELF_DISABLE`）且零写入。
+7. 停用账号立即撤销其全部会话；停用/启用请求携带 `version`；旧会话下一请求 `401`。
+8. 所有账号操作写安全审计；教师退校事件 `bc.resource.teacher.deactivated` 联动停用账号（M-22），处理幂等，复职不自动启用。
+9. 批量开通请求 `{ "teacherIds": ["uuid"] }`（1–500），返回 UTF-8 BOM CSV：`工号,姓名,登录名,初始密码,状态`；已存在账号标记 `ALREADY_EXISTS` 且不返回新密码；响应头 `Cache-Control: no-store`。
+
+| 端点 | 成功响应要点 | 关键失败 |
+|------|--------------|----------|
+| `POST /users` | 201，`user + temporaryPassword + alreadyExists=false` | 400/409 |
+| `PATCH /users/:id/role` | 200，`user`；下一请求生效 | 409 `LAST_ADMIN`/`VERSION_CONFLICT` |
+| `POST /users/:id/disable` | 200，`user`；撤销全部会话 | 409 `SELF_DISABLE`/`LAST_ADMIN` |
+| `POST /users/:id/enable` | 200，`user`；不恢复旧会话 | 409 `STATE_CONFLICT` |
+| `POST /users/:id/reset-password` | 200，`temporaryPassword + mustChangePassword=true` | 409/404 |
+| `POST /teachers/:teacherId/provision-account` | 200，`alreadyExists` 可为 true | 404/409 |
+| `POST /teachers/provision-accounts/batch` | 200，`text/csv` 一次性凭据 | 400/409 |
 
 **新建用户请求**
 
@@ -287,6 +300,8 @@ print_template (
 | `bc.identity.user.disabled` | D08 | — |
 | `bc.identity.user.role-changed` | D08 | — |
 | `bc.resource.teacher.account-provisioned` | D08 | resource |
+
+> identity 事件 payload：`user.created { userId, username, role }`、`user.disabled { userId, username, reason }`、`user.role-changed { userId, fromRole, toRole }`；均带通用 `eventId/occurredAt/occurredBy`、`schemaVersion=1` 并写 outbox。D08 订阅 `bc.resource.teacher.deactivated`，以 `teacherId` 幂等停用关联账号并追加 `bc.identity.user.disabled`；复职不产生 enable 命令。
 | `bc.exchange.import.completed` | D09 | governance |
 | `bc.exchange.export.completed` | D10 | governance |
 | `bc.exchange.print.rendered` | D10 | governance |
