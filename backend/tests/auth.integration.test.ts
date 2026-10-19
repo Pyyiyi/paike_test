@@ -328,7 +328,7 @@ describeWithDatabase('auth and session security', () => {
     expect(me.status).toBe(200);
     expect(me.body.data.user.mustChangePassword).toBe(false);
 
-    const unblocked = await agent.get('/api/v1/semesters');
+    const unblocked = await agent.get('/api/v1/__guard_probe__');
     expect(unblocked.status).toBe(404);
 
     const stored = await pool.query<{ password_hash: string; must_change_password: boolean }>(

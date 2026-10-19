@@ -58,4 +58,11 @@ describe('migration discovery', () => {
       '0015_resource.sql',
     ]);
   });
+
+  it('requires numbering to start at 0001', async () => {
+    const directory = await makeMigrationDir({
+      '0002_second.sql': 'SELECT 2;',
+    });
+    await expect(loadMigrationFiles(directory)).rejects.toThrow(/从 0001 开始/);
+  });
 });

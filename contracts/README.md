@@ -52,3 +52,15 @@ D01–D11、INT-01/INT-02 实现时以本目录为准：
 - 字段、枚举、状态、错误码、路由角色不得偏离；需要偏离时先修改契约并登记原因。
 - 跨域写入只能按 `cross-context-writes.md` 的事务边界调用应用服务。
 - 迁移后的实际库结构必须能由 `schema.sql` 覆盖；INT-03 从实现反写契约时保留版本号并记录差异。
+
+## D01 实现偏差（待 INT-03 归档）
+
+1. `DELETE /semesters/{id}` 与 `DELETE /schedule-templates/{id}` 接受可选 `?version=` 查询参数用于乐观锁；契约原 DELETE 无请求体。未传时按当前版本删除。
+2. `GET /semesters/current` 在尚未设置当前学期时返回 `404 NOT_FOUND`；契约未列该响应。
+3. `operation_log` 由 D07 的 `0030_governance.sql` 创建；D01 的删除/生命周期日志在表存在时写入，D07 合入后自动生效。
+4. 迁移运行器允许卡片预留序号（D01=0010/0011），仍要求首号 0001 且严格递增；迁移文件序号本身未偏离约定。
+5. `seed-anchors.sql` 的 `schedule_template` 冲突目标改为无目标 `ON CONFLICT DO NOTHING`，以适配 `lower(name)` 部分唯一索引；种子数据与 UUID 未变。
+6. `0015_resource_venue_units.sql` 对 D02/D03 的 `teacher`/`class`/`subject` 依赖增加条件守卫：依赖迁移尚未合入时跳过合班/走班表，依赖齐全的空库仍按完整 DDL 创建。
+7. `seed-anchors.sql` 的 `venue` 冲突目标改为无目标 `ON CONFLICT DO NOTHING`，以适配 `lower(name)` 部分唯一索引；种子数据与 UUID 未变。
+
+以上偏差不改变枚举、字段、路由角色或状态语义；INT-03 从实现反写契约时一并归档。

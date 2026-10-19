@@ -177,9 +177,19 @@ export async function runSeed(options: RunSeedOptions): Promise<SeedResult> {
       controlledVocabularyCount = vocabularyCount?.count ?? 0;
 
       const domainAvailability = await tx.queryOne<DomainAvailabilityRow>(
-        "SELECT to_regclass('schedule_template_version') IS NOT NULL AS available",
+        "SELECT to_regclass('schedule_template') IS NOT NULL AS available",
       );
-      d15AnchorsApplied = domainAvailability?.available ?? false;
+      if (domainAvailability?.available) {
+        const anchorPresence = await tx.queryOne<{ applied: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1 FROM schedule_template
+              WHERE template_id = '00000000-0000-4000-8000-000000000101'
+           ) AS applied`,
+        );
+        d15AnchorsApplied = anchorPresence?.applied ?? false;
+      } else {
+        d15AnchorsApplied = false;
+      }
 
       return { candidateGeneratedPassword };
     });

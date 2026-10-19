@@ -1,8 +1,10 @@
 import type { Router } from 'express';
 import type { AuthRuntime } from '../shared/auth/runtime';
+import type { Clock } from '../shared/time/clock';
 
 export interface ModuleRouterContext {
   auth?: AuthRuntime;
+  clock?: Clock;
 }
 
 export interface ModuleRouterExports {

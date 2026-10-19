@@ -1,4 +1,4 @@
-import type { PoolClient, QueryResultRow } from 'pg';
+import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { getPool } from './pool';
 
 export type TransactionIsolation = 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE';
@@ -71,14 +71,22 @@ export async function executeTransaction<T>(
   }
 }
 
-export async function withTransaction<T>(
+export async function withTransactionOn<T>(
+  pool: Pool,
   fn: (tx: Tx) => Promise<T>,
   options: TransactionOptions = {},
 ): Promise<T> {
-  const client = await getPool().connect();
+  const client = await pool.connect();
   try {
     return await executeTransaction(client, fn, options);
   } finally {
     client.release();
   }
+}
+
+export async function withTransaction<T>(
+  fn: (tx: Tx) => Promise<T>,
+  options: TransactionOptions = {},
+): Promise<T> {
+  return withTransactionOn(getPool(), fn, options);
 }

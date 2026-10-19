@@ -76,11 +76,18 @@ export async function loadMigrationFiles(migrationsDir: string): Promise<Migrati
   }
 
   migrations.sort((left, right) => left.filename.localeCompare(right.filename, 'en'));
-  if (migrations[0]?.version !== 1) {
-    throw new MigrationFileError('迁移序号必须从 0001 开始');
+  // 卡片按域预留序号（如 D01=0010/0011、D05=0020/0021），允许不连续；
+  // 但必须从 0001 开始且严格递增，避免执行顺序与依赖顺序错位。
+  let previousVersion = 0;
+  for (const migration of migrations) {
+    if (previousVersion === 0 && migration.version !== 1) {
+      throw new MigrationFileError(`迁移序号必须从 0001 开始；实际 ${migration.filename}`);
+    }
+    if (migration.version <= previousVersion) {
+      throw new MigrationFileError(`迁移序号必须严格递增；${migration.filename} 位于 ${previousVersion} 之后`);
+    }
+    previousVersion = migration.version;
   }
-  // Cards reserve non-overlapping migration ranges (for example 0010-0015).
-  // Gaps are intentional; filenames still execute in strict numeric order.
 
   return migrations;
 }

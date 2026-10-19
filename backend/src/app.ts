@@ -9,9 +9,11 @@ import { PgSessionStore } from './shared/auth/session-store';
 import { errorHandler, notFoundHandler } from './shared/errors/error-handler';
 import { createHealthRouter, type HealthRouterOptions } from './shared/http/health.router';
 import { requestIdMiddleware } from './shared/http/request-id';
+import type { Clock } from './shared/time/clock';
 
 export interface AppOptions extends HealthRouterOptions {
   auth?: AuthRuntime;
+  clock?: Clock;
   routerLogger?: Pick<Console, 'info'>;
 }
 
@@ -36,9 +38,10 @@ export async function createApp(options: AppOptions = {}): Promise<Express> {
 
   app.use('/api/v1', createHealthRouter({ probe: options.probe }));
   await registerModuleRouters(app, {
-    context: { auth: options.auth },
+    context: { auth: options.auth, clock: options.clock },
     logger: options.routerLogger,
   });
+
 
   app.use(notFoundHandler);
   app.use(errorHandler);

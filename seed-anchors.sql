@@ -95,7 +95,7 @@ BEGIN
   -- 2.1 作息模板 + 版本：周一至周三，每天 4 节
   INSERT INTO schedule_template (template_id, name, status, latest_version_no)
   VALUES ('00000000-0000-4000-8000-000000000101', 'D15-基准作息', 'ACTIVE', 1)
-  ON CONFLICT (name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   INSERT INTO schedule_template_version (
     version_id, template_id, version_no, open_weekdays, periods, status
@@ -154,7 +154,7 @@ BEGIN
   -- 2.7 功能室 301（英语专用；容量 45 ≥ 班级人数 40）
   INSERT INTO venue (venue_id, name, type, capacity, status)
   VALUES ('00000000-0000-4000-8000-00000000010b', '301', 'FUNCTION_ROOM', 45, 'AVAILABLE')
-  ON CONFLICT (name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   -- 2.8 任课约束：
   --   A 班数学×2（张，必须连堂）；A 班英语×1（李，301）
