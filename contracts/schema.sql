@@ -772,23 +772,105 @@ CREATE INDEX IF NOT EXISTS idx_import_batch_status_created ON import_batch (stat
 CREATE INDEX IF NOT EXISTS idx_import_batch_module_created ON import_batch (module, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS print_template (
-  template_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name         text NOT NULL UNIQUE,
-  paper_size   print_paper_size NOT NULL DEFAULT 'A4',
-  orientation  print_orientation NOT NULL DEFAULT 'LANDSCAPE',
-  margin_mm    jsonb NOT NULL,
-  title        text NULL,
-  logo_data_uri text NULL,
-  header_text  text NULL,
-  footer_text  text NULL,
-  is_preset    boolean NOT NULL DEFAULT false,
-  version      integer NOT NULL DEFAULT 0,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now(),
-  deleted_at   timestamptz NULL,
-  CONSTRAINT ck_print_template_margin_object CHECK (jsonb_typeof(margin_mm) = 'object')
+  template_id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name           text NOT NULL,
+  paper_size     print_paper_size NOT NULL DEFAULT 'A4',
+  orientation    print_orientation NOT NULL DEFAULT 'LANDSCAPE',
+  margin_mm      jsonb NOT NULL,
+  title          text NULL,
+  logo_data_uri  text NULL,
+  header_text    text NULL,
+  footer_text    text NULL,
+  is_preset      boolean NOT NULL DEFAULT false,
+  version        integer NOT NULL DEFAULT 0 CHECK (version >= 0),
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  deleted_at     timestamptz NULL,
+  CONSTRAINT ck_print_template_name_nonempty
+    CHECK (btrim(name) <> '' AND char_length(name) <= 100),
+  CONSTRAINT ck_print_template_margin_object
+    CHECK (jsonb_typeof(margin_mm) = 'object'),
+  CONSTRAINT ck_print_template_margin_keys
+    CHECK (
+      margin_mm ? 'top' AND margin_mm ? 'right' AND margin_mm ? 'bottom' AND margin_mm ? 'left'
+      AND (margin_mm - 'top' - 'right' - 'bottom' - 'left') = '{}'::jsonb
+    ),
+  CONSTRAINT ck_print_template_margin_numeric
+    CHECK (
+      jsonb_typeof(margin_mm->'top') = 'number'
+      AND jsonb_typeof(margin_mm->'right') = 'number'
+      AND jsonb_typeof(margin_mm->'bottom') = 'number'
+      AND jsonb_typeof(margin_mm->'left') = 'number'
+    ),
+  CONSTRAINT ck_print_template_margin_range
+    CHECK (
+      (margin_mm->>'top')::numeric BETWEEN 0 AND 50
+      AND (margin_mm->>'right')::numeric BETWEEN 0 AND 50
+      AND (margin_mm->>'bottom')::numeric BETWEEN 0 AND 50
+      AND (margin_mm->>'left')::numeric BETWEEN 0 AND 50
+    ),
+  CONSTRAINT ck_print_template_margin_fits_page
+    CHECK (
+      (margin_mm->>'left')::numeric + (margin_mm->>'right')::numeric
+        <= CASE
+             WHEN paper_size = 'A4' AND orientation = 'PORTRAIT' THEN 190
+             WHEN paper_size = 'A4' AND orientation = 'LANDSCAPE' THEN 277
+             WHEN paper_size = 'A3' AND orientation = 'PORTRAIT' THEN 277
+             ELSE 400
+           END
+      AND (margin_mm->>'top')::numeric + (margin_mm->>'bottom')::numeric
+        <= CASE
+             WHEN paper_size = 'A4' AND orientation = 'PORTRAIT' THEN 277
+             WHEN paper_size = 'A4' AND orientation = 'LANDSCAPE' THEN 190
+             WHEN paper_size = 'A3' AND orientation = 'PORTRAIT' THEN 400
+             ELSE 277
+           END
+    ),
+  CONSTRAINT ck_print_template_logo_png
+    CHECK (
+      logo_data_uri IS NULL
+      OR (
+        logo_data_uri LIKE 'data:image/png;base64,%'
+        AND char_length(logo_data_uri) <= 2796226
+      )
+    )
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_print_template_name_active ON print_template (lower(name)) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_print_template_name_active
+  ON print_template (lower(name)) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_print_template_preset
+  ON print_template (is_preset DESC, created_at, template_id) WHERE deleted_at IS NULL;
+
+CREATE OR REPLACE FUNCTION forbid_preset_print_template_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF OLD.is_preset THEN
+    IF TG_OP = 'DELETE' THEN
+      RAISE EXCEPTION 'preset print template cannot be deleted'
+        USING ERRCODE = '23514';
+    ELSIF NEW.deleted_at IS NOT NULL THEN
+      RAISE EXCEPTION 'preset print template cannot be deleted'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_print_template_preset_soft_delete ON print_template;
+CREATE TRIGGER trg_print_template_preset_soft_delete
+  BEFORE UPDATE OF deleted_at ON print_template
+  FOR EACH ROW EXECUTE FUNCTION forbid_preset_print_template_delete();
+
+DROP TRIGGER IF EXISTS trg_print_template_preset_hard_delete ON print_template;
+CREATE TRIGGER trg_print_template_preset_hard_delete
+  BEFORE DELETE ON print_template
+  FOR EACH ROW EXECUTE FUNCTION forbid_preset_print_template_delete();
 
 -- =============================================================================
 -- updated_at 触发器（仅可编辑表）
@@ -836,4 +918,7 @@ COMMENT ON TABLE conflict_ignore IS 'D21 只本次忽略记录；不修改配置
 COMMENT ON TABLE semester_archive IS '学期存档摘要索引；一个学期只允许存档一次；摘要与触发追加写保护不可修改';
 COMMENT ON TABLE operation_log IS '关键操作与显式审计动作；只追加，无更新/删除 API，无清理任务';
 COMMENT ON TABLE import_batch IS '导入批次；errors 同时保存 ERROR/WARNING，最多 1000 条，failed 只统计行级 ERROR 的去重数据行';
-COMMENT ON TABLE print_template IS '打印模板；预设模板不可删除';
+COMMENT ON TABLE print_template IS '打印模板；预设模板不可删除；模板编辑采用 version 乐观锁，逻辑删除后名称可复用';
+COMMENT ON COLUMN print_template.margin_mm IS '毫米整数对象 {top,right,bottom,left}；每边 0..50，扣除边距后至少保留 20mm 可打印区域';
+COMMENT ON COLUMN print_template.logo_data_uri IS '仅 PNG data URI；原始文件解码后 ≤2 MiB（2,097,152 bytes），禁止 SVG；实现层先验文件签名再入库';
+COMMENT ON COLUMN print_template.version IS '创建为 0；每次编辑或更换校徽后 version+1，PATCH 必须携带当前 version';
