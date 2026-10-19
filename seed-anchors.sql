@@ -154,7 +154,7 @@ BEGIN
   -- 2.7 功能室 301（英语专用；容量 45 ≥ 班级人数 40）
   INSERT INTO venue (venue_id, name, type, capacity, status)
   VALUES ('00000000-0000-4000-8000-00000000010b', '301', 'FUNCTION_ROOM', 45, 'AVAILABLE')
-  ON CONFLICT (name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   -- 2.8 任课约束：
   --   A 班数学×2（张，必须连堂）；A 班英语×1（李，301）

@@ -129,7 +129,7 @@ routes:
   name: venues
   title: 场地·功能室
   card: D04
-  component: frontend/src/shared/views/PlaceholderView.vue
+  component: frontend/src/views/resource/VenueView.vue
   navigationGroup: basicData
   accessSource: navigation
   rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
@@ -140,7 +140,7 @@ routes:
   name: combined-classes
   title: 合班课
   card: D04
-  component: frontend/src/shared/views/PlaceholderView.vue
+  component: frontend/src/views/registry/CombinedClassView.vue
   navigationGroup: basicData
   accessSource: navigation
   rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
@@ -151,7 +151,7 @@ routes:
   name: walking-groups
   title: 走班配置
   card: D04
-  component: frontend/src/shared/views/PlaceholderView.vue
+  component: frontend/src/views/registry/WalkingGroupView.vue
   navigationGroup: basicData
   accessSource: navigation
   rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）

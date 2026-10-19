@@ -60,5 +60,7 @@ D01–D11、INT-01/INT-02 实现时以本目录为准：
 3. `operation_log` 由 D07 的 `0030_governance.sql` 创建；D01 的删除/生命周期日志在表存在时写入，D07 合入后自动生效。
 4. 迁移运行器允许卡片预留序号（D01=0010/0011），仍要求首号 0001 且严格递增；迁移文件序号本身未偏离约定。
 5. `seed-anchors.sql` 的 `schedule_template` 冲突目标改为无目标 `ON CONFLICT DO NOTHING`，以适配 `lower(name)` 部分唯一索引；种子数据与 UUID 未变。
+6. `0015_resource_venue_units.sql` 对 D02/D03 的 `teacher`/`class`/`subject` 依赖增加条件守卫：依赖迁移尚未合入时跳过合班/走班表，依赖齐全的空库仍按完整 DDL 创建。
+7. `seed-anchors.sql` 的 `venue` 冲突目标改为无目标 `ON CONFLICT DO NOTHING`，以适配 `lower(name)` 部分唯一索引；种子数据与 UUID 未变。
 
 以上偏差不改变枚举、字段、路由角色或状态语义；INT-03 从实现反写契约时一并归档。
