@@ -95,7 +95,7 @@ BEGIN
   -- 2.1 作息模板 + 版本：周一至周三，每天 4 节
   INSERT INTO schedule_template (template_id, name, status, latest_version_no)
   VALUES ('00000000-0000-4000-8000-000000000101', 'D15-基准作息', 'ACTIVE', 1)
-  ON CONFLICT (name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   INSERT INTO schedule_template_version (
     version_id, template_id, version_no, open_weekdays, periods, status

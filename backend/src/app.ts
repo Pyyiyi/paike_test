@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
 import { createAuthRouter } from './modules/auth/auth.router';
+import { createRegistryRouter } from './modules/registry';
 import { createCsrfMiddleware } from './shared/auth/csrf';
 import { createForcedPasswordChangeGuard, createLoadCurrentUser } from './shared/auth/rbac';
 import type { AuthRuntime } from './shared/auth/runtime';
@@ -9,9 +10,11 @@ import { PgSessionStore } from './shared/auth/session-store';
 import { errorHandler, notFoundHandler } from './shared/errors/error-handler';
 import { createHealthRouter, type HealthRouterOptions } from './shared/http/health.router';
 import { requestIdMiddleware } from './shared/http/request-id';
+import type { Clock } from './shared/time/clock';
 
 export interface AppOptions extends HealthRouterOptions {
   auth?: AuthRuntime;
+  clock?: Clock;
 }
 
 export function createApp(options: AppOptions = {}): Express {
@@ -35,6 +38,10 @@ export function createApp(options: AppOptions = {}): Express {
   }
 
   app.use('/api/v1', createHealthRouter({ probe: options.probe }));
+
+  if (options.auth) {
+    app.use('/api/v1', createRegistryRouter(options.auth.pool, options.clock));
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

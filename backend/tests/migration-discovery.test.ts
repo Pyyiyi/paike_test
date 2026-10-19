@@ -45,11 +45,24 @@ describe('migration discovery', () => {
     await expect(loadMigrationFiles(directory)).rejects.toBeInstanceOf(MigrationFileError);
   });
 
-  it('rejects sequence gaps', async () => {
+  it('allows card-reserved sequence gaps while keeping order', async () => {
     const directory = await makeMigrationDir({
+      '0011_later.sql': 'SELECT 11;',
       '0001_first.sql': 'SELECT 1;',
-      '0003_third.sql': 'SELECT 3;',
+      '0010_domain.sql': 'SELECT 10;',
     });
-    await expect(loadMigrationFiles(directory)).rejects.toThrow(/连续递增/);
+    const migrations = await loadMigrationFiles(directory);
+    expect(migrations.map((migration) => migration.filename)).toEqual([
+      '0001_first.sql',
+      '0010_domain.sql',
+      '0011_later.sql',
+    ]);
+  });
+
+  it('requires numbering to start at 0001', async () => {
+    const directory = await makeMigrationDir({
+      '0002_second.sql': 'SELECT 2;',
+    });
+    await expect(loadMigrationFiles(directory)).rejects.toThrow(/从 0001 开始/);
   });
 });
