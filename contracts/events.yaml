@@ -1,0 +1,746 @@
+contractVersion: 1.0.0
+schemaVersion: 1
+naming: bc.<context>.<entity>.<past-tense>
+delivery:
+  table: sys_outbox_event
+  semantics: at-least-once
+  consumerIdempotencyKey: eventId
+  dispatcher: after transaction commit
+commonPayloadFields:
+  eventId: &id001
+    type: string
+    format: uuid
+  occurredAt: &id002
+    type: string
+    format: date-time
+  occurredBy: &id003
+    type:
+    - string
+    - 'null'
+    format: uuid
+events:
+- name: bc.registry.semester.created
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D01
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: Semester
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - semesterId
+    - name
+    - scheduleTemplateVersionId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      semesterId: *id001
+      name:
+        type: string
+      scheduleTemplateVersionId: *id001
+- name: bc.registry.semester.status-changed
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D01
+    - D07
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  - context: governance
+    cards:
+    - D07
+  aggregateType: Semester
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - semesterId
+    - fromStatus
+    - toStatus
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      semesterId: *id001
+      fromStatus:
+        type: string
+      toStatus:
+        type: string
+- name: bc.registry.schedule-template.version-created
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D01
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: ScheduleTemplateVersion
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - templateId
+    - versionId
+    - versionNo
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      templateId: *id001
+      versionId: *id001
+      versionNo: &id004
+        type: integer
+        minimum: 0
+- name: bc.registry.grade.created
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D02
+  consumers: []
+  aggregateType: Grade
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - gradeId
+    - name
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      gradeId: *id001
+      name:
+        type: string
+- name: bc.registry.class.created
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D02
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: Class
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - classId
+    - gradeId
+    - name
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      classId: *id001
+      gradeId: *id001
+      name:
+        type: string
+- name: bc.registry.subject.rule-configured
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D02
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: SubjectPeriodRule
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - subjectId
+    - ruleId
+    - weeklyPeriods
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      subjectId: *id001
+      ruleId: *id001
+      weeklyPeriods: *id004
+- name: bc.resource.teacher.created
+  schemaVersion: 1
+  producer:
+    context: resource
+    cards:
+    - D03
+  consumers: []
+  aggregateType: Teacher
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - teacherId
+    - employeeNo
+    - name
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      teacherId: *id001
+      employeeNo:
+        type: string
+      name:
+        type: string
+- name: bc.resource.teacher.deactivated
+  schemaVersion: 1
+  producer:
+    context: resource
+    cards:
+    - D03
+  consumers:
+  - context: identity
+    cards:
+    - D08
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: Teacher
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - teacherId
+    - status
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      teacherId: *id001
+      status:
+        type: string
+        enum:
+        - LEFT
+- name: bc.resource.assignment.configured
+  schemaVersion: 1
+  producer:
+    context: resource
+    cards:
+    - D03
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: TeachingAssignment
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - assignmentId
+    - teacherId
+    - subjectId
+    - classId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      assignmentId: *id001
+      teacherId: *id001
+      subjectId: *id001
+      classId: *id001
+- name: bc.resource.venue.created
+  schemaVersion: 1
+  producer:
+    context: resource
+    cards:
+    - D04
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: Venue
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - venueId
+    - name
+    - type
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      venueId: *id001
+      name:
+        type: string
+      type:
+        type: string
+- name: bc.resource.combined-class.configured
+  schemaVersion: 1
+  producer:
+    context: resource
+    cards:
+    - D04
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: CombinedClass
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - combinedClassId
+    - teacherId
+    - classIds
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      combinedClassId: *id001
+      teacherId: *id001
+      classIds:
+        type: array
+        items: *id001
+- name: bc.resource.walking-group.configured
+  schemaVersion: 1
+  producer:
+    context: resource
+    cards:
+    - D04
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+  aggregateType: WalkingGroup
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - walkingGroupId
+    - subjectId
+    - teacherId
+    - classIds
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      walkingGroupId: *id001
+      subjectId: *id001
+      teacherId: *id001
+      classIds:
+        type: array
+        items: *id001
+- name: bc.resource.teacher.account-provisioned
+  schemaVersion: 1
+  producer:
+    context: identity
+    cards:
+    - D08
+  consumers:
+  - context: resource
+    cards:
+    - D03
+  aggregateType: UserAccount
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - teacherId
+    - userId
+    - username
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      teacherId: *id001
+      userId: *id001
+      username:
+        type: string
+- name: bc.timetable.plan.generated
+  schemaVersion: 1
+  producer:
+    context: timetable
+    cards:
+    - D05
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: TimetablePlan
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - planId
+    - semesterId
+    - conflictCount
+    - unscheduledCount
+    - durationMs
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      planId: *id001
+      semesterId: *id001
+      conflictCount: *id004
+      unscheduledCount: *id004
+      durationMs: *id004
+- name: bc.timetable.plan.published
+  schemaVersion: 1
+  producer:
+    context: timetable
+    cards:
+    - D05
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  - context: registry
+    cards:
+    - D01
+  aggregateType: TimetablePlan
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - planId
+    - semesterId
+    - supersededPlanId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      planId: *id001
+      semesterId: *id001
+      supersededPlanId: *id003
+- name: bc.timetable.plan.archived
+  schemaVersion: 1
+  producer:
+    context: timetable
+    cards:
+    - D07
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  - context: registry
+    cards:
+    - D01
+  aggregateType: TimetablePlan
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - planId
+    - semesterId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      planId: *id001
+      semesterId: *id001
+- name: bc.timetable.lesson.moved
+  schemaVersion: 1
+  producer:
+    context: timetable
+    cards:
+    - D06
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: Lesson
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - planId
+    - lessonId
+    - from
+    - to
+    - transactionId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      planId: *id001
+      lessonId: *id001
+      from:
+        type: object
+      to:
+        type: object
+      transactionId: *id001
+- name: bc.timetable.conflict.ignored-once
+  schemaVersion: 1
+  producer:
+    context: timetable
+    cards:
+    - D05
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: ConflictDetail
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - planId
+    - conflictId
+    - operatorId
+    - reason
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      planId: *id001
+      conflictId: *id001
+      operatorId: *id001
+      reason:
+        type: string
+- name: bc.governance.operation.logged
+  schemaVersion: 1
+  producer:
+    context: governance
+    cards:
+    - D07
+  consumers: []
+  aggregateType: OperationLog
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - logId
+    - module
+    - targetType
+    - targetId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      logId: *id001
+      module:
+        type: string
+      targetType:
+        type: string
+      targetId: *id003
+- name: bc.identity.user.created
+  schemaVersion: 1
+  producer:
+    context: identity
+    cards:
+    - D08
+  consumers: []
+  aggregateType: UserAccount
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - userId
+    - username
+    - role
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      userId: *id001
+      username:
+        type: string
+      role:
+        type: string
+- name: bc.identity.user.disabled
+  schemaVersion: 1
+  producer:
+    context: identity
+    cards:
+    - D08
+  consumers: []
+  aggregateType: UserAccount
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - userId
+    - username
+    - reason
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      userId: *id001
+      username:
+        type: string
+      reason:
+        type: string
+- name: bc.identity.user.role-changed
+  schemaVersion: 1
+  producer:
+    context: identity
+    cards:
+    - D08
+  consumers: []
+  aggregateType: UserAccount
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - userId
+    - fromRole
+    - toRole
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      userId: *id001
+      fromRole:
+        type: string
+      toRole:
+        type: string
+- name: bc.exchange.import.completed
+  schemaVersion: 1
+  producer:
+    context: exchange
+    cards:
+    - D09
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: ImportBatch
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - batchId
+    - module
+    - total
+    - success
+    - failed
+    - status
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      batchId: *id001
+      module:
+        type: string
+      total: *id004
+      success: *id004
+      failed: *id004
+      status:
+        type: string
+- name: bc.exchange.export.completed
+  schemaVersion: 1
+  producer:
+    context: exchange
+    cards:
+    - D10
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: Export
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - dimension
+    - semesterId
+    - objectCount
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      dimension:
+        type: string
+      semesterId: *id001
+      objectCount: *id004
+- name: bc.exchange.print.rendered
+  schemaVersion: 1
+  producer:
+    context: exchange
+    cards:
+    - D10
+  consumers:
+  - context: governance
+    cards:
+    - D07
+  aggregateType: PrintJob
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - templateId
+    - dimension
+    - semesterId
+    - format
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      templateId: *id001
+      dimension:
+        type: string
+      semesterId: *id001
+      format:
+        type: string
+        enum:
+        - PDF

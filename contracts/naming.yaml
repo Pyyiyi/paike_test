@@ -1,0 +1,1535 @@
+contractVersion: 1.0.0
+enumRule: 数据库原生 enum、OpenAPI、前端展示标签使用同一拼写；禁止同义词作为枚举值
+errorCodeRule: code 仅供程序判断，界面只展示 message
+caseRules:
+  database: snake_case
+  api: camelCase
+  events: bc.<context>.<entity>.<past-tense>
+  frontendRoutes: kebab-case
+roles:
+  ADMIN: 教务管理员
+  TEACHER: 普通教师
+enumAliases:
+  import_status: import_batch_status
+  paper_size: print_paper_size
+  paper_orientation: print_orientation
+  user_role: user_role
+enums:
+  user_role:
+    apiSchema: Role
+    values:
+    - ADMIN
+    - TEACHER
+    labels:
+      ADMIN: 管理员
+      TEACHER: 教师
+    sqlType: user_role
+    rule: 数据库、API、前端三处拼写完全一致
+  account_status:
+    apiSchema: AccountStatus
+    values:
+    - ENABLED
+    - DISABLED
+    labels:
+      ENABLED: 启用
+      DISABLED: 停用
+    sqlType: account_status
+    rule: 数据库、API、前端三处拼写完全一致
+  gender:
+    apiSchema: Gender
+    values:
+    - MALE
+    - FEMALE
+    - UNSPECIFIED
+    labels:
+      MALE: 男
+      FEMALE: 女
+      UNSPECIFIED: 未填写
+    sqlType: gender
+    rule: 数据库、API、前端三处拼写完全一致
+  semester_status:
+    apiSchema: SemesterStatus
+    values:
+    - NOT_STARTED
+    - IN_PROGRESS
+    - ENDED
+    - ARCHIVED
+    labels:
+      NOT_STARTED: 未开始
+      IN_PROGRESS: 进行中
+      ENDED: 已结束
+      ARCHIVED: 已存档
+    sqlType: semester_status
+    rule: 数据库、API、前端三处拼写完全一致
+  term:
+    apiSchema: Term
+    values:
+    - FALL
+    - SPRING
+    labels:
+      FALL: 秋季学期
+      SPRING: 春季学期
+    sqlType: term
+    rule: 数据库、API、前端三处拼写完全一致
+  template_status:
+    apiSchema: TemplateStatus
+    values:
+    - ACTIVE
+    - RETIRED
+    labels:
+      ACTIVE: 启用
+      RETIRED: 停用
+    sqlType: template_status
+    rule: 数据库、API、前端三处拼写完全一致
+  calendar_exception_type:
+    apiSchema: CalendarExceptionType
+    values:
+    - STOP
+    - MAKEUP
+    labels:
+      STOP: 停课
+      MAKEUP: 调休上课
+    sqlType: calendar_exception_type
+    rule: 数据库、API、前端三处拼写完全一致
+  teacher_status:
+    apiSchema: TeacherStatus
+    values:
+    - ACTIVE
+    - LEFT
+    labels:
+      ACTIVE: 在职
+      LEFT: 退校
+    sqlType: teacher_status
+    rule: 数据库、API、前端三处拼写完全一致
+  venue_type:
+    apiSchema: VenueType
+    values:
+    - CLASSROOM
+    - FUNCTION_ROOM
+    labels:
+      CLASSROOM: 教室
+      FUNCTION_ROOM: 功能室
+    sqlType: venue_type
+    rule: 数据库、API、前端三处拼写完全一致
+  venue_status:
+    apiSchema: VenueStatus
+    values:
+    - AVAILABLE
+    - UNAVAILABLE
+    labels:
+      AVAILABLE: 可用
+      UNAVAILABLE: 不可用
+    sqlType: venue_status
+    rule: 数据库、API、前端三处拼写完全一致
+  consecutive_preference:
+    apiSchema: ConsecutivePreference
+    values:
+    - NONE
+    - PREFERRED
+    - REQUIRED
+    labels:
+      NONE: 无偏好
+      PREFERRED: 尽量连堂
+      REQUIRED: 必须连堂
+    sqlType: consecutive_preference
+    rule: 数据库、API、前端三处拼写完全一致
+  time_slot_preference:
+    apiSchema: TimeSlotPreference
+    values:
+    - NONE
+    - MORNING
+    - AFTERNOON
+    labels:
+      NONE: 无
+      MORNING: 上午优先
+      AFTERNOON: 下午优先
+    sqlType: time_slot_preference
+    rule: 数据库、API、前端三处拼写完全一致
+  plan_status:
+    apiSchema: PlanStatus
+    values:
+    - DRAFT
+    - PUBLISHED
+    - SUPERSEDED
+    - ARCHIVED
+    labels:
+      DRAFT: 草稿
+      PUBLISHED: 正式课表
+      SUPERSEDED: 已被覆盖
+      ARCHIVED: 已存档
+    sqlType: plan_status
+    rule: 数据库、API、前端三处拼写完全一致
+  week_parity:
+    apiSchema: WeekParity
+    values:
+    - ALL
+    - ODD
+    - EVEN
+    labels:
+      ALL: 每周
+      ODD: 单周
+      EVEN: 双周
+    sqlType: week_parity
+    rule: 数据库、API、前端三处拼写完全一致
+  scheduling_unit_type:
+    apiSchema: SchedulingUnitType
+    values:
+    - ASSIGNMENT
+    - COMBINED_CLASS
+    - WALKING_GROUP
+    labels:
+      ASSIGNMENT: 常规任课
+      COMBINED_CLASS: 合班
+      WALKING_GROUP: 走班
+    sqlType: scheduling_unit_type
+    rule: 数据库、API、前端三处拼写完全一致
+  conflict_type:
+    apiSchema: ConflictType
+    values:
+    - TEACHER_OVERLAP
+    - CLASS_OVERLAP
+    - VENUE_OVERLAP
+    - CAPACITY_EXCEEDED
+    - LOCKED_VIOLATION
+    - RULE_VIOLATION
+    labels:
+      TEACHER_OVERLAP: 教师时间冲突
+      CLASS_OVERLAP: 班级同节多课
+      VENUE_OVERLAP: 场地占用
+      CAPACITY_EXCEEDED: 容量超限
+      LOCKED_VIOLATION: 锁定冲突
+      RULE_VIOLATION: 规则冲突
+    sqlType: conflict_type
+    rule: 数据库、API、前端三处拼写完全一致
+  conflict_resolution:
+    apiSchema: ConflictResolution
+    values:
+    - UNRESOLVED
+    - IGNORED_ONCE
+    - CONFIG_CHANGED
+    - RESOLVED
+    labels:
+      UNRESOLVED: 待处理
+      IGNORED_ONCE: 本次已忽略
+      CONFIG_CHANGED: 配置已变更
+      RESOLVED: 已解决
+    sqlType: conflict_resolution
+    rule: 数据库、API、前端三处拼写完全一致
+  unscheduled_reason:
+    apiSchema: UnscheduledReason
+    values:
+    - NO_FEASIBLE_SLOT
+    - TEACHER_EXHAUSTED
+    - CLASS_EXHAUSTED
+    - VENUE_EXHAUSTED
+    - CAPACITY
+    - LOCK_CONFLICT
+    - TIME_LIMIT
+    labels:
+      NO_FEASIBLE_SLOT: 无可行时段
+      TEACHER_EXHAUSTED: 教师时段耗尽
+      CLASS_EXHAUSTED: 班级时段耗尽
+      VENUE_EXHAUSTED: 场地时段耗尽
+      CAPACITY: 容量不足
+      LOCK_CONFLICT: 锁定冲突
+      TIME_LIMIT: 计算超时
+    sqlType: unscheduled_reason
+    rule: 数据库、API、前端三处拼写完全一致
+  adjustment_action:
+    apiSchema: AdjustmentAction
+    values:
+    - APPLY
+    - UNDO
+    - REDO
+    labels:
+      APPLY: 保存调课
+      UNDO: 撤销
+      REDO: 重做
+    sqlType: adjustment_action
+    rule: 数据库、API、前端三处拼写完全一致
+  import_module:
+    apiSchema: ImportModule
+    values:
+    - SEMESTERS
+    - GRADES
+    - CLASSES
+    - SUBJECTS
+    - TEACHERS
+    - ASSIGNMENTS
+    - VENUES
+    labels:
+      SEMESTERS: 学期
+      GRADES: 年级
+      CLASSES: 班级
+      SUBJECTS: 科目
+      TEACHERS: 教师
+      ASSIGNMENTS: 任课
+      VENUES: 场地
+    sqlType: import_module
+    rule: 数据库、API、前端三处拼写完全一致
+  import_batch_status:
+    apiSchema: ImportBatchStatus
+    values:
+    - COMPLETED
+    - PARTIAL
+    - FAILED
+    labels:
+      COMPLETED: 全部成功
+      PARTIAL: 部分成功
+      FAILED: 失败
+    sqlType: import_batch_status
+    rule: 数据库、API、前端三处拼写完全一致
+  export_dimension:
+    apiSchema: ExportDimension
+    values:
+    - MASTER_DATA
+    - TIMETABLE
+    - STATISTICS
+    labels:
+      MASTER_DATA: 基础数据
+      TIMETABLE: 课表
+      STATISTICS: 工作量统计
+    sqlType: export_dimension
+    rule: 数据库、API、前端三处拼写完全一致
+  timetable_dimension:
+    apiSchema: TimetableDimension
+    values:
+    - CLASS
+    - TEACHER
+    - SCHOOL
+    - VENUE
+    - ASSIGNMENT
+    labels:
+      CLASS: 班级
+      TEACHER: 教师
+      SCHOOL: 全校
+      VENUE: 场地
+      ASSIGNMENT: 任课
+    sqlType: timetable_dimension
+    rule: 数据库、API、前端三处拼写完全一致
+  operation_module:
+    apiSchema: OperationModule
+    values:
+    - DELETE
+    - PUBLISH
+    - OVERWRITE
+    - SWITCH_SEMESTER
+    - IMPORT
+    - ARCHIVE
+    - ADJUST
+    labels:
+      DELETE: 删除
+      PUBLISH: 发布
+      OVERWRITE: 覆盖
+      SWITCH_SEMESTER: 切换学期
+      IMPORT: 导入
+      ARCHIVE: 存档
+      ADJUST: 调课
+    sqlType: operation_module
+    rule: 数据库、API、前端三处拼写完全一致
+  print_paper_size:
+    apiSchema: PrintPaperSize
+    values:
+    - A4
+    - A3
+    labels:
+      A4: A4
+      A3: A3
+    sqlType: print_paper_size
+    rule: 数据库、API、前端三处拼写完全一致
+  print_orientation:
+    apiSchema: PrintOrientation
+    values:
+    - PORTRAIT
+    - LANDSCAPE
+    labels:
+      PORTRAIT: 纵向
+      LANDSCAPE: 横向
+    sqlType: print_orientation
+    rule: 数据库、API、前端三处拼写完全一致
+  health_status:
+    apiSchema: HealthStatus
+    values:
+    - ok
+    labels:
+      ok: 正常
+    storage: API-only
+    rule: 数据库、API、前端三处拼写完全一致
+  error_code:
+    apiSchema: ErrorCode
+    values:
+    - VALIDATION_ERROR
+    - UNAUTHENTICATED
+    - FORBIDDEN
+    - NOT_FOUND
+    - VERSION_CONFLICT
+    - DUPLICATE
+    - REFERENCE_PROTECTED
+    - STATE_CONFLICT
+    - DRAFT_EXISTS
+    - FILE_TOO_LARGE
+    - IMPORT_ROW_ERROR
+    - ACCOUNT_LOCKED
+    - INTERNAL_ERROR
+    - DATABASE_UNAVAILABLE
+    labels:
+      VALIDATION_ERROR: 保存失败，请检查输入内容
+      UNAUTHENTICATED: 登录已失效，请重新登录
+      FORBIDDEN: 您没有权限执行此操作
+      NOT_FOUND: 未找到该数据，可能已被删除
+      VERSION_CONFLICT: 数据已被他人修改，请刷新后重试
+      DUPLICATE: 该名称已存在，请更换后重试
+      REFERENCE_PROTECTED: 该数据正被使用，暂时无法删除
+      STATE_CONFLICT: 当前状态不允许此操作
+      DRAFT_EXISTS: 当前学期存在未保存草稿
+      FILE_TOO_LARGE: 文件超过 20 MB，请拆分后重试
+      IMPORT_ROW_ERROR: 文件中有无法导入的行
+      ACCOUNT_LOCKED: 登录失败次数过多，请 15 分钟后再试
+      INTERNAL_ERROR: 系统暂时不可用，请稍后重试
+      DATABASE_UNAVAILABLE: 数据库暂时不可用，请稍后重试
+    storage: API-only
+    rule: 数据库、API、前端三处拼写完全一致
+errorCodes:
+  VALIDATION_ERROR:
+    httpStatus: 400
+    message: 保存失败，请检查输入内容
+    when: 字段校验失败
+  UNAUTHENTICATED:
+    httpStatus: 401
+    message: 登录已失效，请重新登录
+    when: 无会话/会话过期
+  FORBIDDEN:
+    httpStatus: 403
+    message: 您没有权限执行此操作
+    when: 角色或数据范围不允许
+  NOT_FOUND:
+    httpStatus: 404
+    message: 未找到该数据，可能已被删除
+    when: 资源不存在
+  VERSION_CONFLICT:
+    httpStatus: 409
+    message: 数据已被他人修改，请刷新后重试
+    when: 乐观锁失败
+  DUPLICATE:
+    httpStatus: 409
+    message: 该名称已存在，请更换后重试
+    when: 唯一键冲突
+  REFERENCE_PROTECTED:
+    httpStatus: 409
+    message: 该数据正被使用，暂时无法删除
+    when: 引用保护
+  STATE_CONFLICT:
+    httpStatus: 409
+    message: 当前状态不允许此操作
+    when: 状态机守卫
+  DRAFT_EXISTS:
+    httpStatus: 409
+    message: 当前学期存在未保存草稿
+    when: 切换学期草稿守卫
+  FILE_TOO_LARGE:
+    httpStatus: 413
+    message: 文件超过 20 MB，请拆分后重试
+    when: 上传超限
+  IMPORT_ROW_ERROR:
+    httpStatus: 422
+    message: 文件中有无法导入的行
+    when: 导入部分失败
+  ACCOUNT_LOCKED:
+    httpStatus: 423
+    message: 登录失败次数过多，请 15 分钟后再试
+    when: 账号锁定
+  INTERNAL_ERROR:
+    httpStatus: 500
+    message: 系统暂时不可用，请稍后重试
+    when: 未预期异常
+  DATABASE_UNAVAILABLE:
+    httpStatus: 503
+    message: 数据库暂时不可用，请稍后重试
+    when: 数据库健康检查失败
+dbTableOwnership:
+  shared:
+  - sys_migration
+  - sys_user
+  - sys_session
+  - sys_login_attempt
+  - sys_config
+  - sys_controlled_vocabulary
+  - sys_outbox_event
+  - sys_audit_log
+  registry:
+  - semester
+  - schedule_template
+  - schedule_template_version
+  - calendar_exception
+  - grade
+  - class
+  - subject
+  - subject_period_rule
+  resource:
+  - teacher
+  - teaching_assignment
+  - venue
+  - combined_class
+  - combined_class_member
+  - walking_group
+  - walking_group_member
+  timetable:
+  - timetable_plan
+  - lesson
+  - lesson_class
+  - unscheduled_lesson
+  - conflict_detail
+  - conflict_ignore
+  - adjustment_history
+  governance:
+  - operation_log
+  - semester_archive
+  identity:
+  - sys_user
+  exchange:
+  - import_batch
+  - print_template
+fieldDictionary:
+  User:
+    userId:
+      dbColumn: user_id
+      apiType: string
+      nullable: false
+    username:
+      dbColumn: username
+      apiType: string
+      nullable: false
+    displayName:
+      dbColumn: display_name
+      apiType: string
+      nullable: false
+    role:
+      dbColumn: role
+      apiType: Role
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: true
+    mustChangePassword:
+      dbColumn: must_change_password
+      apiType: boolean
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: AccountStatus
+      nullable: false
+  Semester:
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    academicYear:
+      dbColumn: academic_year
+      apiType: string
+      nullable: false
+    term:
+      dbColumn: term
+      apiType: Term
+      nullable: false
+    startDate:
+      dbColumn: start_date
+      apiType: string
+      nullable: false
+    endDate:
+      dbColumn: end_date
+      apiType: string
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: SemesterStatus
+      nullable: false
+    scheduleTemplateVersionId:
+      dbColumn: schedule_template_version_id
+      apiType: string
+      nullable: false
+    isCurrent:
+      dbColumn: is_current
+      apiType: boolean
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+    createdAt:
+      dbColumn: created_at
+      apiType: string
+      nullable: false
+    updatedAt:
+      dbColumn: updated_at
+      apiType: string
+      nullable: false
+  CalendarException:
+    exceptionId:
+      dbColumn: exception_id
+      apiType: string
+      nullable: false
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    type:
+      dbColumn: type
+      apiType: CalendarExceptionType
+      nullable: false
+    startDate:
+      dbColumn: start_date
+      apiType: string
+      nullable: false
+    endDate:
+      dbColumn: end_date
+      apiType: string
+      nullable: false
+    makeupWeekday:
+      dbColumn: makeup_weekday
+      apiType: integer
+      nullable: true
+    note:
+      dbColumn: note
+      apiType: string
+      nullable: true
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  ScheduleTemplate:
+    templateId:
+      dbColumn: template_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: TemplateStatus
+      nullable: false
+    latestVersionNo:
+      dbColumn: latest_version_no
+      apiType: integer
+      nullable: false
+    latestVersion:
+      dbColumn: latest_version
+      apiType: ScheduleTemplateVersion
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  ScheduleTemplateVersion:
+    versionId:
+      dbColumn: version_id
+      apiType: string
+      nullable: false
+    templateId:
+      dbColumn: template_id
+      apiType: string
+      nullable: false
+    versionNo:
+      dbColumn: version_no
+      apiType: integer
+      nullable: false
+    openWeekdays:
+      dbColumn: open_weekdays
+      apiType: array<integer>
+      nullable: false
+    periods:
+      dbColumn: periods
+      apiType: array<Period>
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: TemplateStatus
+      nullable: false
+    createdAt:
+      dbColumn: created_at
+      apiType: string
+      nullable: false
+  Period:
+    periodNo:
+      dbColumn: period_no
+      apiType: integer
+      nullable: false
+    startTime:
+      dbColumn: start_time
+      apiType: string
+      nullable: false
+    endTime:
+      dbColumn: end_time
+      apiType: string
+      nullable: false
+  Grade:
+    gradeId:
+      dbColumn: grade_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    sortOrder:
+      dbColumn: sort_order
+      apiType: integer
+      nullable: false
+    classCount:
+      dbColumn: class_count
+      apiType: integer
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  Class:
+    classId:
+      dbColumn: class_id
+      apiType: string
+      nullable: false
+    gradeId:
+      dbColumn: grade_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    serialNo:
+      dbColumn: serial_no
+      apiType: integer
+      nullable: false
+    headTeacherId:
+      dbColumn: head_teacher_id
+      apiType: string
+      nullable: true
+    studentCount:
+      dbColumn: student_count
+      apiType: integer
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  Subject:
+    subjectId:
+      dbColumn: subject_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    periodRule:
+      dbColumn: period_rule
+      apiType: SubjectPeriodRule
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  SubjectPeriodRule:
+    ruleId:
+      dbColumn: rule_id
+      apiType: string
+      nullable: false
+    subjectId:
+      dbColumn: subject_id
+      apiType: string
+      nullable: false
+    weeklyPeriods:
+      dbColumn: weekly_periods
+      apiType: integer
+      nullable: false
+    consecutivePreference:
+      dbColumn: consecutive_preference
+      apiType: ConsecutivePreference
+      nullable: false
+    forbiddenSlots:
+      dbColumn: forbidden_slots
+      apiType: array<Slot>
+      nullable: false
+    timeSlotPreference:
+      dbColumn: time_slot_preference
+      apiType: TimeSlotPreference
+      nullable: false
+    periodBalanceEnabled:
+      dbColumn: period_balance_enabled
+      apiType: boolean
+      nullable: false
+    amPmBalanceEnabled:
+      dbColumn: am_pm_balance_enabled
+      apiType: boolean
+      nullable: false
+    fixedSlotRuleEnabled:
+      dbColumn: fixed_slot_rule_enabled
+      apiType: boolean
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  Teacher:
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    employeeNo:
+      dbColumn: employee_no
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    gender:
+      dbColumn: gender
+      apiType: Gender
+      nullable: false
+    phone:
+      dbColumn: phone
+      apiType: string
+      nullable: true
+    status:
+      dbColumn: status
+      apiType: TeacherStatus
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  TeachingAssignment:
+    assignmentId:
+      dbColumn: assignment_id
+      apiType: string
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    subjectId:
+      dbColumn: subject_id
+      apiType: string
+      nullable: false
+    classId:
+      dbColumn: class_id
+      apiType: string
+      nullable: false
+    venueId:
+      dbColumn: venue_id
+      apiType: string
+      nullable: true
+    weeklyPeriods:
+      dbColumn: weekly_periods
+      apiType: integer
+      nullable: false
+    consecutivePreference:
+      dbColumn: consecutive_preference
+      apiType: ConsecutivePreference
+      nullable: false
+    forbiddenSlots:
+      dbColumn: forbidden_slots
+      apiType: array<Slot>
+      nullable: false
+    exemptedSlots:
+      dbColumn: exempted_slots
+      apiType: array<Slot>
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  Venue:
+    venueId:
+      dbColumn: venue_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    type:
+      dbColumn: type
+      apiType: VenueType
+      nullable: false
+    capacity:
+      dbColumn: capacity
+      apiType: integer
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: VenueStatus
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  CombinedClass:
+    combinedClassId:
+      dbColumn: combined_class_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    venueId:
+      dbColumn: venue_id
+      apiType: string
+      nullable: true
+    classIds:
+      dbColumn: class_ids
+      apiType: array<string>
+      nullable: false
+    periodConstraint:
+      dbColumn: period_constraint
+      apiType: object
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  WalkingGroup:
+    walkingGroupId:
+      dbColumn: walking_group_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    subjectId:
+      dbColumn: subject_id
+      apiType: string
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    venueId:
+      dbColumn: venue_id
+      apiType: string
+      nullable: false
+    classIds:
+      dbColumn: class_ids
+      apiType: array<string>
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  TimetablePlan:
+    planId:
+      dbColumn: plan_id
+      apiType: string
+      nullable: false
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: PlanStatus
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+    scheduleTemplateVersionId:
+      dbColumn: schedule_template_version_id
+      apiType: string
+      nullable: false
+    conflictCount:
+      dbColumn: conflict_count
+      apiType: integer
+      nullable: false
+    unscheduledCount:
+      dbColumn: unscheduled_count
+      apiType: integer
+      nullable: false
+    durationMs:
+      dbColumn: duration_ms
+      apiType: integer
+      nullable: true
+    hasManualExemption:
+      dbColumn: has_manual_exemption
+      apiType: boolean
+      nullable: false
+    generatedAt:
+      dbColumn: generated_at
+      apiType: string
+      nullable: true
+    generatedBy:
+      dbColumn: generated_by
+      apiType: string
+      nullable: true
+  Lesson:
+    lessonId:
+      dbColumn: lesson_id
+      apiType: string
+      nullable: false
+    planId:
+      dbColumn: plan_id
+      apiType: string
+      nullable: false
+    weekday:
+      dbColumn: weekday
+      apiType: integer
+      nullable: false
+    period:
+      dbColumn: period
+      apiType: integer
+      nullable: false
+    weekParity:
+      dbColumn: week_parity
+      apiType: WeekParity
+      nullable: false
+    subjectId:
+      dbColumn: subject_id
+      apiType: string
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    venueId:
+      dbColumn: venue_id
+      apiType: string
+      nullable: true
+    unitType:
+      dbColumn: unit_type
+      apiType: SchedulingUnitType
+      nullable: false
+    unitId:
+      dbColumn: unit_id
+      apiType: string
+      nullable: false
+    locked:
+      dbColumn: locked
+      apiType: boolean
+      nullable: false
+    classIds:
+      dbColumn: class_ids
+      apiType: array<string>
+      nullable: false
+  ConflictDetail:
+    conflictId:
+      dbColumn: conflict_id
+      apiType: string
+      nullable: false
+    planId:
+      dbColumn: plan_id
+      apiType: string
+      nullable: false
+    lessonId:
+      dbColumn: lesson_id
+      apiType: string
+      nullable: true
+    conflictType:
+      dbColumn: conflict_type
+      apiType: ConflictType
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: true
+    classIds:
+      dbColumn: class_ids
+      apiType: array<string>
+      nullable: false
+    venueId:
+      dbColumn: venue_id
+      apiType: string
+      nullable: true
+    weekday:
+      dbColumn: weekday
+      apiType: integer
+      nullable: true
+    period:
+      dbColumn: period
+      apiType: integer
+      nullable: true
+    ruleId:
+      dbColumn: rule_id
+      apiType: string
+      nullable: true
+    configRef:
+      dbColumn: config_ref
+      apiType: object
+      nullable: true
+    suggestion:
+      dbColumn: suggestion
+      apiType: string
+      nullable: false
+    resolution:
+      dbColumn: resolution
+      apiType: ConflictResolution
+      nullable: false
+  UnscheduledLesson:
+    unscheduledId:
+      dbColumn: unscheduled_id
+      apiType: string
+      nullable: false
+    planId:
+      dbColumn: plan_id
+      apiType: string
+      nullable: false
+    unitType:
+      dbColumn: unit_type
+      apiType: SchedulingUnitType
+      nullable: false
+    unitId:
+      dbColumn: unit_id
+      apiType: string
+      nullable: false
+    classIds:
+      dbColumn: class_ids
+      apiType: array<string>
+      nullable: false
+    subjectId:
+      dbColumn: subject_id
+      apiType: string
+      nullable: false
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    requiredPeriods:
+      dbColumn: required_periods
+      apiType: integer
+      nullable: false
+    unplacedPeriods:
+      dbColumn: unplaced_periods
+      apiType: integer
+      nullable: false
+    reasonCode:
+      dbColumn: reason_code
+      apiType: UnscheduledReason
+      nullable: false
+    reasonDetail:
+      dbColumn: reason_detail
+      apiType: string
+      nullable: false
+    suggestedActions:
+      dbColumn: suggested_actions
+      apiType: array<object>
+      nullable: false
+  TimetableCell:
+    weekday:
+      dbColumn: weekday
+      apiType: integer
+      nullable: false
+    period:
+      dbColumn: period
+      apiType: integer
+      nullable: false
+    lessonId:
+      dbColumn: lesson_id
+      apiType: string
+      nullable: false
+    subjectName:
+      dbColumn: subject_name
+      apiType: string
+      nullable: false
+    teacherName:
+      dbColumn: teacher_name
+      apiType: string
+      nullable: false
+    classNames:
+      dbColumn: class_names
+      apiType: array<string>
+      nullable: false
+    venueName:
+      dbColumn: venue_name
+      apiType: string
+      nullable: true
+    weekParity:
+      dbColumn: week_parity
+      apiType: WeekParity
+      nullable: false
+    locked:
+      dbColumn: locked
+      apiType: boolean
+      nullable: false
+  Timetable:
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    dimension:
+      dbColumn: dimension
+      apiType: TimetableDimension
+      nullable: false
+    objectId:
+      dbColumn: object_id
+      apiType: string
+      nullable: true
+    parity:
+      dbColumn: parity
+      apiType: WeekParity
+      nullable: false
+    weekdays:
+      dbColumn: weekdays
+      apiType: array<integer>
+      nullable: false
+    periods:
+      dbColumn: periods
+      apiType: array<Period>
+      nullable: false
+    cells:
+      dbColumn: cells
+      apiType: array<TimetableCell>
+      nullable: false
+  IdleSlot:
+    weekday:
+      dbColumn: weekday
+      apiType: integer
+      nullable: false
+    period:
+      dbColumn: period
+      apiType: integer
+      nullable: false
+    weekParity:
+      dbColumn: week_parity
+      apiType: WeekParity
+      nullable: false
+  IdleSlots:
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    objectType:
+      dbColumn: object_type
+      apiType: string
+      nullable: false
+    objectId:
+      dbColumn: object_id
+      apiType: string
+      nullable: false
+    parity:
+      dbColumn: parity
+      apiType: WeekParity
+      nullable: false
+    slots:
+      dbColumn: slots
+      apiType: array<IdleSlot>
+      nullable: false
+  WorkloadRow:
+    teacherId:
+      dbColumn: teacher_id
+      apiType: string
+      nullable: false
+    teacherName:
+      dbColumn: teacher_name
+      apiType: string
+      nullable: false
+    regular:
+      dbColumn: regular
+      apiType: integer
+      nullable: false
+    consecutive:
+      dbColumn: consecutive
+      apiType: integer
+      nullable: false
+    combined:
+      dbColumn: combined
+      apiType: integer
+      nullable: false
+    overtime:
+      dbColumn: overtime
+      apiType: integer
+      nullable: false
+    total:
+      dbColumn: total
+      apiType: integer
+      nullable: false
+  OperationLog:
+    logId:
+      dbColumn: log_id
+      apiType: string
+      nullable: false
+    operatorId:
+      dbColumn: operator_id
+      apiType: string
+      nullable: false
+    operatorName:
+      dbColumn: operator_name
+      apiType: string
+      nullable: false
+    module:
+      dbColumn: module
+      apiType: OperationModule
+      nullable: false
+    action:
+      dbColumn: action
+      apiType: string
+      nullable: false
+    content:
+      dbColumn: content
+      apiType: string
+      nullable: false
+    targetType:
+      dbColumn: target_type
+      apiType: string
+      nullable: false
+    targetId:
+      dbColumn: target_id
+      apiType: string
+      nullable: true
+    requestId:
+      dbColumn: request_id
+      apiType: string
+      nullable: true
+    createdAt:
+      dbColumn: created_at
+      apiType: string
+      nullable: false
+  SemesterArchive:
+    archiveId:
+      dbColumn: archive_id
+      apiType: string
+      nullable: false
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    planId:
+      dbColumn: plan_id
+      apiType: string
+      nullable: false
+    archivedBy:
+      dbColumn: archived_by
+      apiType: string
+      nullable: false
+    archivedAt:
+      dbColumn: archived_at
+      apiType: string
+      nullable: false
+    summary:
+      dbColumn: summary
+      apiType: object
+      nullable: false
+  ArchiveStatus:
+    semesterId:
+      dbColumn: semester_id
+      apiType: string
+      nullable: false
+    canArchive:
+      dbColumn: can_archive
+      apiType: boolean
+      nullable: false
+    reason:
+      dbColumn: reason
+      apiType: string
+      nullable: true
+    publishedPlanId:
+      dbColumn: published_plan_id
+      apiType: string
+      nullable: true
+  ControlledVocabulary:
+    vocabId:
+      dbColumn: vocab_id
+      apiType: string
+      nullable: false
+    type:
+      dbColumn: type
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    synonyms:
+      dbColumn: synonyms
+      apiType: array<string>
+      nullable: false
+    isActive:
+      dbColumn: is_active
+      apiType: boolean
+      nullable: false
+  ImportBatch:
+    batchId:
+      dbColumn: batch_id
+      apiType: string
+      nullable: false
+    module:
+      dbColumn: module
+      apiType: ImportModule
+      nullable: false
+    filename:
+      dbColumn: filename
+      apiType: string
+      nullable: false
+    sizeBytes:
+      dbColumn: size_bytes
+      apiType: integer
+      nullable: false
+    total:
+      dbColumn: total
+      apiType: integer
+      nullable: false
+    success:
+      dbColumn: success
+      apiType: integer
+      nullable: false
+    failed:
+      dbColumn: failed
+      apiType: integer
+      nullable: false
+    status:
+      dbColumn: status
+      apiType: ImportBatchStatus
+      nullable: false
+    errors:
+      dbColumn: errors
+      apiType: array<ImportError>
+      nullable: false
+    operatorId:
+      dbColumn: operator_id
+      apiType: string
+      nullable: false
+    operatorName:
+      dbColumn: operator_name
+      apiType: string
+      nullable: false
+    createdAt:
+      dbColumn: created_at
+      apiType: string
+      nullable: false
+    errorReportUrl:
+      dbColumn: error_report_url
+      apiType: string
+      nullable: true
+  ImportError:
+    rowNo:
+      dbColumn: row_no
+      apiType: integer
+      nullable: false
+    column:
+      dbColumn: column
+      apiType: string
+      nullable: true
+    rawValue:
+      dbColumn: raw_value
+      apiType: string
+      nullable: true
+    message:
+      dbColumn: message
+      apiType: string
+      nullable: false
+  PrintTemplate:
+    templateId:
+      dbColumn: template_id
+      apiType: string
+      nullable: false
+    name:
+      dbColumn: name
+      apiType: string
+      nullable: false
+    paperSize:
+      dbColumn: paper_size
+      apiType: PrintPaperSize
+      nullable: false
+    orientation:
+      dbColumn: orientation
+      apiType: PrintOrientation
+      nullable: false
+    marginMm:
+      dbColumn: margin_mm
+      apiType: object
+      nullable: false
+    title:
+      dbColumn: title
+      apiType: string
+      nullable: true
+    logoDataUri:
+      dbColumn: logo_data_uri
+      apiType: string
+      nullable: true
+    headerText:
+      dbColumn: header_text
+      apiType: string
+      nullable: true
+    footerText:
+      dbColumn: footer_text
+      apiType: string
+      nullable: true
+    isPreset:
+      dbColumn: is_preset
+      apiType: boolean
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+  ColumnDictionary:
+    dimension:
+      dbColumn: dimension
+      apiType: string
+      nullable: false
+    columns:
+      dbColumn: columns
+      apiType: array<object>
+      nullable: false
+  AdjustmentResult:
+    planId:
+      dbColumn: plan_id
+      apiType: string
+      nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+    historyId:
+      dbColumn: history_id
+      apiType: string
+      nullable: false
+    action:
+      dbColumn: action
+      apiType: AdjustmentAction
+      nullable: false
+    conflictCount:
+      dbColumn: conflict_count
+      apiType: integer
+      nullable: false
+  ProvisioningResult:
+    user:
+      dbColumn: user
+      apiType: User
+      nullable: false
+    temporaryPassword:
+      dbColumn: temporary_password
+      apiType: string
+      nullable: true
+    alreadyExists:
+      dbColumn: already_exists
+      apiType: boolean
+      nullable: false
+  ResetPasswordResult:
+    userId:
+      dbColumn: user_id
+      apiType: string
+      nullable: false
+    temporaryPassword:
+      dbColumn: temporary_password
+      apiType: string
+      nullable: false
+    mustChangePassword:
+      dbColumn: must_change_password
+      apiType: boolean
+      nullable: false

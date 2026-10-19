@@ -1,0 +1,327 @@
+contractVersion: 1.0.0
+rolesDocument: roles.md
+roleSourcePriority: [navigation, permissionMatrix, authenticated, public]
+defaultLanding:
+  ADMIN: /
+  TEACHER: /me/timetable
+loginRoute: /login
+changePasswordRoute: /change-password
+forbiddenRoute: /403
+notFoundRoute: /404
+navigationGroups:
+- key: overview
+  label: 系统概览
+- key: basicData
+  label: 基础数据
+- key: scheduling
+  label: 排课
+- key: timetables
+  label: 课表
+- key: teacher
+  label: 我的空间
+- key: statistics
+  label: 统计
+- key: governance
+  label: 治理与留痕
+- key: identity
+  label: 用户与角色
+- key: exchange
+  label: 数据交换
+routes:
+- path: /login
+  name: login
+  title: 登录
+  component: frontend/src/views/auth/LoginView.vue
+  accessSource: public
+  roles: []
+  requiresAuth: false
+  menu: false
+- path: /change-password
+  name: change-password
+  title: 修改密码
+  component: frontend/src/views/auth/ChangePasswordView.vue
+  accessSource: authenticated
+  roles: [ADMIN, TEACHER]
+  requiresAuth: true
+  menu: false
+- path: /403
+  name: forbidden
+  title: 权限不足
+  component: frontend/src/views/auth/ForbiddenView.vue
+  accessSource: authenticated
+  roles: [ADMIN, TEACHER]
+  requiresAuth: true
+  menu: false
+- path: /404
+  name: not-found
+  title: 页面不存在
+  component: frontend/src/views/auth/NotFoundView.vue
+  accessSource: authenticated
+  roles: [ADMIN, TEACHER]
+  requiresAuth: true
+  menu: false
+- path: /
+  name: overview
+  title: 系统概览
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: overview
+  accessSource: navigation
+  rolesFrom: 系统概览
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /semesters
+  name: semesters
+  title: 学期管理（含校历）
+  card: D01
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /schedule-templates
+  name: schedule-templates
+  title: 作息模板与版本
+  card: D01
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /grades-classes
+  name: grades-classes
+  title: 年级·班级
+  card: D02
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /subjects
+  name: subjects
+  title: 科目与课时规则
+  card: D02
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /teachers
+  name: teachers
+  title: 教师与任课
+  card: D03
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /venues
+  name: venues
+  title: 场地·功能室
+  card: D04
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /combined-classes
+  name: combined-classes
+  title: 合班课
+  card: D04
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /walking-groups
+  name: walking-groups
+  title: 走班配置
+  card: D04
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: basicData
+  accessSource: navigation
+  rolesFrom: 基础数据（学期 / 模板 / 年级班级 / 科目 / 教师 / 场地 / 合班 / 走班）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /scheduling
+  name: scheduling
+  title: 一键智能排课（含方案列表）
+  card: D05
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: scheduling
+  accessSource: navigation
+  rolesFrom: 排课（一键排课 / 预排锁定 / 冲突中心）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /scheduling/pre
+  name: scheduling-pre
+  title: 预排与锁定
+  card: D05
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: scheduling
+  accessSource: navigation
+  rolesFrom: 排课（一键排课 / 预排锁定 / 冲突中心）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /conflicts
+  name: conflicts
+  title: 冲突校验中心
+  card: D05
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: scheduling
+  accessSource: navigation
+  rolesFrom: 排课（一键排课 / 预排锁定 / 冲突中心）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /timetables
+  name: timetables
+  title: 多维度课表视图
+  card: D06
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: timetables
+  accessSource: navigation
+  rolesFrom: 课表（全班 / 教师 / 全校 / 场地 / 任课）
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /timetables/adjust
+  name: timetables-adjust
+  title: 拖拽调课 / 方案微调
+  card: D06
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: timetables
+  accessSource: navigation
+  rolesFrom: 调课
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /me/timetable
+  name: my-timetable
+  title: 我的课表
+  card: D06
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: teacher
+  accessSource: navigation
+  rolesFrom: 我的课表
+  roles: [TEACHER]
+  requiresAuth: true
+  menu: true
+  dataScope: self-and-associated-classes
+- path: /idle-slots
+  name: idle-slots
+  title: 空闲时段查询
+  card: D06
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: timetables
+  accessSource: navigation
+  rolesFrom: 空闲查询
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /me/idle-slots
+  name: my-idle-slots
+  title: 我的空闲时段
+  card: D06
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: teacher
+  accessSource: navigation
+  rolesFrom: 我的空闲时段
+  roles: [TEACHER]
+  requiresAuth: true
+  menu: true
+  dataScope: self-only
+- path: /statistics
+  name: statistics
+  title: 工作量统计
+  card: D11
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: statistics
+  accessSource: navigation
+  rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /logs
+  name: logs
+  title: 操作日志
+  card: D07
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: governance
+  accessSource: navigation
+  rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /archive
+  name: archive
+  title: 多学期存档与切换
+  card: D07
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: governance
+  accessSource: navigation
+  rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /import
+  name: import
+  title: 批量导入
+  card: D09
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: exchange
+  accessSource: permissionMatrix
+  rolesFrom: 批量导入
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /export
+  name: export
+  title: Excel 导出
+  card: D10
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: exchange
+  accessSource: navigation
+  rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /print
+  name: print
+  title: 模板打印
+  card: D10
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: exchange
+  accessSource: navigation
+  rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
+- path: /users
+  name: users
+  title: 用户与角色
+  card: D08
+  component: frontend/src/shared/views/PlaceholderView.vue
+  navigationGroup: identity
+  accessSource: navigation
+  rolesFrom: 统计 / 导出 / 打印 / 冲突中心 / 日志 / 存档 / 用户
+  roles: [ADMIN]
+  requiresAuth: true
+  menu: true
