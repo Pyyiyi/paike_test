@@ -308,7 +308,7 @@ DDD 提供 29 组命令/事件，本设计全部保留并补充实现细节：
 | `conflict_type` | `TEACHER_OVERLAP` / `CLASS_OVERLAP` / `VENUE_OVERLAP` / `CAPACITY_EXCEEDED` / `LOCKED_VIOLATION` / `RULE_VIOLATION` |
 | `conflict_resolution` | `UNRESOLVED` / `IGNORED_ONCE` / `CONFIG_CHANGED` / `RESOLVED` |
 | `import_status` | `COMPLETED` / `PARTIAL` / `FAILED` |
-| `operation_module` | `DELETE` / `PUBLISH` / `OVERWRITE` / `SWITCH_SEMESTER` / `IMPORT` / `ARCHIVE` / `ADJUST` |
+| `operation_module` | `DELETE` / `PUBLISH` / `OVERWRITE` / `SWITCH_SEMESTER` / `IMPORT` / `ARCHIVE` / `ADJUST` / `GENERATE` / `SAVE_AS` / `IGNORE_ONCE` / `LOCK` / `UNLOCK` |
 
 ### 5.4 状态机
 

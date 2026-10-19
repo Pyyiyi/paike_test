@@ -295,7 +295,7 @@ DO $$ BEGIN CREATE TYPE import_module AS ENUM ('SEMESTERS', 'GRADES', 'CLASSES',
 DO $$ BEGIN CREATE TYPE import_batch_status AS ENUM ('COMPLETED', 'PARTIAL', 'FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE export_dimension AS ENUM ('MASTER_DATA', 'TIMETABLE', 'STATISTICS'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE timetable_dimension AS ENUM ('CLASS', 'TEACHER', 'SCHOOL', 'VENUE', 'ASSIGNMENT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE operation_module AS ENUM ('DELETE', 'PUBLISH', 'OVERWRITE', 'SWITCH_SEMESTER', 'IMPORT', 'ARCHIVE', 'ADJUST'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE operation_module AS ENUM ('DELETE', 'PUBLISH', 'OVERWRITE', 'SWITCH_SEMESTER', 'IMPORT', 'ARCHIVE', 'ADJUST', 'GENERATE', 'SAVE_AS', 'IGNORE_ONCE', 'LOCK', 'UNLOCK'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE print_paper_size AS ENUM ('A4', 'A3'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE print_orientation AS ENUM ('PORTRAIT', 'LANDSCAPE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -442,10 +442,13 @@ CREATE TABLE IF NOT EXISTS subject_period_rule (
   period_balance_enabled     boolean NOT NULL DEFAULT false,
   am_pm_balance_enabled      boolean NOT NULL DEFAULT false,
   fixed_slot_rule_enabled    boolean NOT NULL DEFAULT false,
+  fixed_slots                jsonb NOT NULL DEFAULT '[]'::jsonb,
   version                    integer NOT NULL DEFAULT 1,
   created_at                 timestamptz NOT NULL DEFAULT now(),
   updated_at                 timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_subject_period_rule_forbidden_array CHECK (jsonb_typeof(forbidden_slots) = 'array')
+  CONSTRAINT ck_subject_period_rule_forbidden_array CHECK (jsonb_typeof(forbidden_slots) = 'array'),
+  CONSTRAINT ck_subject_period_rule_fixed_array CHECK (jsonb_typeof(fixed_slots) = 'array'),
+  CONSTRAINT ck_subject_period_rule_fixed_nonempty CHECK (NOT fixed_slot_rule_enabled OR jsonb_array_length(fixed_slots) > 0)
 );
 
 CREATE TABLE IF NOT EXISTS combined_class (
@@ -530,27 +533,39 @@ CREATE TABLE IF NOT EXISTS timetable_plan (
   semester_id                  uuid NOT NULL REFERENCES semester(semester_id),
   name                         text NOT NULL,
   status                       plan_status NOT NULL DEFAULT 'DRAFT',
-  version                      integer NOT NULL DEFAULT 0,
+  source_plan_id               uuid NULL REFERENCES timetable_plan(plan_id),
+  version                      integer NOT NULL DEFAULT 0 CHECK (version >= 0),
+  generation_no                integer NOT NULL DEFAULT 0 CHECK (generation_no >= 0),
   schedule_template_version_id uuid NOT NULL REFERENCES schedule_template_version(version_id),
+  generation_seed              bigint NULL,
+  snapshot_hash                text NULL CHECK (snapshot_hash IS NULL OR snapshot_hash ~ '^[0-9a-f]{64}$'),
   conflict_count               integer NOT NULL DEFAULT 0 CHECK (conflict_count >= 0),
   unscheduled_count            integer NOT NULL DEFAULT 0 CHECK (unscheduled_count >= 0),
   duration_ms                  integer NULL CHECK (duration_ms >= 0),
   has_manual_exemption         boolean NOT NULL DEFAULT false,
   generated_at                 timestamptz NULL,
   generated_by                 uuid NULL REFERENCES sys_user(user_id),
+  published_at                 timestamptz NULL,
+  published_by                 uuid NULL REFERENCES sys_user(user_id),
+  superseded_at                timestamptz NULL,
+  archived_at                  timestamptz NULL,
   created_at                   timestamptz NOT NULL DEFAULT now(),
   updated_at                   timestamptz NOT NULL DEFAULT now(),
-  deleted_at                   timestamptz NULL
+  deleted_at                   timestamptz NULL,
+  CONSTRAINT ck_plan_name_nonempty CHECK (btrim(name) <> ''),
+  CONSTRAINT ck_plan_superseded_trace CHECK (status <> 'SUPERSEDED' OR superseded_at IS NOT NULL),
+  CONSTRAINT ck_plan_archived_trace CHECK (status <> 'ARCHIVED' OR archived_at IS NOT NULL)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_one_published
   ON timetable_plan (semester_id) WHERE status = 'PUBLISHED' AND deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_status ON timetable_plan (semester_id, status);
+CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_status ON timetable_plan (semester_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_timetable_plan_source ON timetable_plan (source_plan_id) WHERE source_plan_id IS NOT NULL AND deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS lesson (
   lesson_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id        uuid NOT NULL REFERENCES timetable_plan(plan_id) ON DELETE CASCADE,
   weekday        smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),
-  period         smallint NOT NULL CHECK (period >= 1),
+  period         smallint NOT NULL CHECK (period BETWEEN 1 AND 20),
   week_parity    week_parity NOT NULL DEFAULT 'ALL',
   subject_id     uuid NOT NULL REFERENCES subject(subject_id),
   teacher_id     uuid NOT NULL REFERENCES teacher(teacher_id),
@@ -558,12 +573,17 @@ CREATE TABLE IF NOT EXISTS lesson (
   unit_type      scheduling_unit_type NOT NULL,
   unit_id        uuid NOT NULL,
   locked         boolean NOT NULL DEFAULT false,
+  locked_at      timestamptz NULL,
+  locked_by      uuid NULL REFERENCES sys_user(user_id),
   created_at     timestamptz NOT NULL DEFAULT now(),
-  updated_at     timestamptz NOT NULL DEFAULT now()
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_lesson_lock_trace CHECK ((locked AND locked_at IS NOT NULL AND locked_by IS NOT NULL) OR (NOT locked AND locked_at IS NULL AND locked_by IS NULL))
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lesson_unit_slot ON lesson (plan_id, unit_type, unit_id, weekday, period, week_parity);
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_weekday_period ON lesson (plan_id, weekday, period);
-CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher ON lesson (plan_id, teacher_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue ON lesson (plan_id, venue_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher ON lesson (plan_id, teacher_id, weekday, period);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue ON lesson (plan_id, venue_id, weekday, period) WHERE venue_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_locked ON lesson (plan_id, locked) WHERE locked;
 CREATE INDEX IF NOT EXISTS idx_lesson_unit ON lesson (unit_type, unit_id);
 
 CREATE TABLE IF NOT EXISTS lesson_class (
@@ -582,45 +602,66 @@ CREATE TABLE IF NOT EXISTS unscheduled_lesson (
   class_ids        uuid[] NOT NULL,
   subject_id       uuid NOT NULL REFERENCES subject(subject_id),
   teacher_id       uuid NOT NULL REFERENCES teacher(teacher_id),
-  required_periods integer NOT NULL CHECK (required_periods >= 0),
-  unplaced_periods integer NOT NULL CHECK (unplaced_periods >= 0),
+  required_periods integer NOT NULL CHECK (required_periods > 0),
+  unplaced_periods integer NOT NULL CHECK (unplaced_periods > 0),
   reason_code      unscheduled_reason NOT NULL,
-  reason_detail    text NOT NULL,
+  reason_detail    text NOT NULL CHECK (btrim(reason_detail) <> ''),
   suggested_actions jsonb NOT NULL,
+  source_config_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at       timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_unscheduled_actions_array CHECK (jsonb_typeof(suggested_actions) = 'array')
+  CONSTRAINT ck_unscheduled_class_ids_nonempty CHECK (cardinality(class_ids) > 0),
+  CONSTRAINT ck_unscheduled_unplaced_range CHECK (unplaced_periods <= required_periods),
+  CONSTRAINT ck_unscheduled_actions_array CHECK (jsonb_typeof(suggested_actions) = 'array' AND jsonb_array_length(suggested_actions) > 0),
+  CONSTRAINT ck_unscheduled_config_refs_array CHECK (jsonb_typeof(source_config_refs) = 'array')
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_unscheduled_plan_unit ON unscheduled_lesson (plan_id, unit_type, unit_id);
 CREATE INDEX IF NOT EXISTS idx_unscheduled_lesson_plan ON unscheduled_lesson (plan_id);
 CREATE INDEX IF NOT EXISTS idx_unscheduled_unit ON unscheduled_lesson (unit_type, unit_id);
 
 CREATE TABLE IF NOT EXISTS conflict_detail (
   conflict_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id      uuid NOT NULL REFERENCES timetable_plan(plan_id) ON DELETE CASCADE,
+  generation_no integer NOT NULL CHECK (generation_no >= 1),
+  fingerprint  text NOT NULL CHECK (fingerprint ~ '^[0-9a-f]{64}$'),
   lesson_id    uuid NULL REFERENCES lesson(lesson_id) ON DELETE SET NULL,
   conflict_type conflict_type NOT NULL,
   teacher_id   uuid NULL REFERENCES teacher(teacher_id),
   class_ids    uuid[] NULL,
   venue_id     uuid NULL REFERENCES venue(venue_id),
   weekday      smallint NULL CHECK (weekday BETWEEN 1 AND 7),
-  period       smallint NULL CHECK (period >= 1),
+  period       smallint NULL CHECK (period BETWEEN 1 AND 20),
+  week_parity  week_parity NOT NULL DEFAULT 'ALL',
   rule_id      text NULL,
   config_ref   jsonb NULL,
-  suggestion   text NOT NULL,
+  suggestion   text NOT NULL CHECK (btrim(suggestion) <> ''),
+  ignorable    boolean NOT NULL DEFAULT false,
+  ignore_blocked_reason text NULL,
   resolution   conflict_resolution NOT NULL DEFAULT 'UNRESOLVED',
-  created_at   timestamptz NOT NULL DEFAULT now()
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_conflict_ignore_block CHECK (NOT ignorable OR ignore_blocked_reason IS NULL)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_plan_generation_fingerprint ON conflict_detail (plan_id, generation_no, fingerprint);
 CREATE INDEX IF NOT EXISTS idx_conflict_detail_plan_resolution ON conflict_detail (plan_id, resolution);
+CREATE INDEX IF NOT EXISTS idx_conflict_detail_plan_slot ON conflict_detail (plan_id, weekday, period);
 
 CREATE TABLE IF NOT EXISTS conflict_ignore (
   ignore_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  plan_id     uuid NOT NULL REFERENCES timetable_plan(plan_id) ON DELETE CASCADE,
-  conflict_id uuid NULL REFERENCES conflict_detail(conflict_id) ON DELETE SET NULL,
+  plan_id     uuid NOT NULL REFERENCES timetable_plan(plan_id),
+  generation_no integer NOT NULL CHECK (generation_no >= 1),
+  conflict_id uuid NULL,
+  conflict_fingerprint text NOT NULL CHECK (conflict_fingerprint ~ '^[0-9a-f]{64}$'),
+  conflict_type conflict_type NOT NULL,
+  object_snapshot jsonb NOT NULL,
+  rule_id     text NULL,
+  config_ref  jsonb NULL,
   operator_id uuid NOT NULL REFERENCES sys_user(user_id),
-  reason      text NOT NULL,
+  reason      text NOT NULL CHECK (btrim(reason) <> ''),
   scope       text NOT NULL DEFAULT 'THIS_RUN' CHECK (scope = 'THIS_RUN'),
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_conflict_ignore_object CHECK (jsonb_typeof(object_snapshot) = 'object')
 );
-CREATE INDEX IF NOT EXISTS idx_conflict_ignore_plan ON conflict_ignore (plan_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_ignore_run_fingerprint ON conflict_ignore (plan_id, generation_no, conflict_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_conflict_ignore_plan ON conflict_ignore (plan_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS adjustment_history (
   history_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -630,8 +671,11 @@ CREATE TABLE IF NOT EXISTS adjustment_history (
   unit_id     uuid NOT NULL,
   operations  jsonb NOT NULL,
   action      adjustment_action NOT NULL CHECK (action IN ('APPLY', 'UNDO', 'REDO')),
+  version_before integer NOT NULL CHECK (version_before >= 0),
+  version_after  integer NOT NULL CHECK (version_after >= version_before),
   created_at  timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_adjustment_operations_array CHECK (jsonb_typeof(operations) = 'array')
+  CONSTRAINT ck_adjustment_session_nonempty CHECK (btrim(session_id) <> ''),
+  CONSTRAINT ck_adjustment_operations_array CHECK (jsonb_typeof(operations) = 'array' AND jsonb_array_length(operations) > 0)
 );
 CREATE INDEX IF NOT EXISTS idx_adjustment_history_scope ON adjustment_history (plan_id, operator_id, session_id, created_at DESC);
 

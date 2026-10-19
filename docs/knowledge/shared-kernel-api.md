@@ -214,7 +214,7 @@ export function registerEventHandler(eventName: string, handler: (e: OutboxEvent
 export interface OperationLogInput {
   operatorId: string;
   operatorName: string;
-  module: 'DELETE' | 'PUBLISH' | 'OVERWRITE' | 'SWITCH_SEMESTER' | 'IMPORT' | 'ARCHIVE' | 'ADJUST';
+  module: 'DELETE' | 'PUBLISH' | 'OVERWRITE' | 'SWITCH_SEMESTER' | 'IMPORT' | 'ARCHIVE' | 'ADJUST' | 'GENERATE' | 'SAVE_AS' | 'IGNORE_ONCE' | 'LOCK' | 'UNLOCK';
   action: string;
   content: string;        // 中文、可读
   targetType: string;

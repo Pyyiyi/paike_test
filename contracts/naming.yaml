@@ -317,6 +317,11 @@ enums:
     - IMPORT
     - ARCHIVE
     - ADJUST
+    - GENERATE
+    - SAVE_AS
+    - IGNORE_ONCE
+    - LOCK
+    - UNLOCK
     labels:
       DELETE: 删除
       PUBLISH: 发布
@@ -325,6 +330,11 @@ enums:
       IMPORT: 导入
       ARCHIVE: 存档
       ADJUST: 调课
+      GENERATE: 生成排课
+      SAVE_AS: 另存方案
+      IGNORE_ONCE: 只本次忽略
+      LOCK: 锁定课次
+      UNLOCK: 解锁课次
     sqlType: operation_module
     rule: 数据库、API、前端三处拼写完全一致
   print_paper_size:
@@ -784,6 +794,10 @@ fieldDictionary:
       dbColumn: fixed_slot_rule_enabled
       apiType: boolean
       nullable: false
+    fixedSlots:
+      dbColumn: fixed_slots
+      apiType: array<Slot>
+      nullable: false
     version:
       dbColumn: version
       apiType: integer
@@ -1078,6 +1092,10 @@ fieldDictionary:
       dbColumn: period
       apiType: integer
       nullable: true
+    weekParity:
+      dbColumn: week_parity
+      apiType: WeekParity
+      nullable: false
     ruleId:
       dbColumn: rule_id
       apiType: string
@@ -1090,6 +1108,14 @@ fieldDictionary:
       dbColumn: suggestion
       apiType: string
       nullable: false
+    ignorable:
+      dbColumn: ignorable
+      apiType: boolean
+      nullable: false
+    ignoreBlockedReason:
+      dbColumn: ignore_blocked_reason
+      apiType: string
+      nullable: true
     resolution:
       dbColumn: resolution
       apiType: ConflictResolution
