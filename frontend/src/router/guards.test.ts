@@ -69,6 +69,15 @@ describe('route guards', () => {
     expect(router.currentRoute.value.path).toBe('/change-password');
   });
 
+  it('allows an authenticated user to open the voluntary password-change route', async () => {
+    vi.mocked(authApi.me).mockResolvedValue(admin);
+    const router = routerWithGuards();
+
+    await router.push('/change-password');
+
+    expect(router.currentRoute.value.path).toBe('/change-password');
+  });
+
   it('redirects a Teacher away from an Admin route to /403', async () => {
     vi.mocked(authApi.me).mockResolvedValue(teacher);
     const router = routerWithGuards();

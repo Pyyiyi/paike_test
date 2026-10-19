@@ -72,10 +72,6 @@ export function installRouteGuards(router: ReturnType<typeof createRouter>): voi
       return { name: 'change-password' };
     }
 
-    if (!session.mustChangePassword && to.name === 'change-password') {
-      return session.homePath;
-    }
-
     const roles = to.meta.roles;
     if (roles && (!session.user || !roles.includes(session.user.role))) {
       return { name: 'forbidden' };

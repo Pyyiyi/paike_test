@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import VersionConflictNotice from '@/shared/components/VersionConflictNotice.vue';
 import { resetVersionConflict } from '@/shared/composables/useVersionConflict';
-import { http, resetCsrfToken } from './http';
+import { http, onUnauthorized, resetCsrfToken, resetUnauthorizedHandler } from './http';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -22,6 +22,7 @@ describe('shared HTTP client', () => {
   });
 
   afterEach(() => {
+    resetUnauthorizedHandler();
     vi.unstubAllGlobals();
   });
 
@@ -39,6 +40,50 @@ describe('shared HTTP client', () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({ 'x-csrf-token': 'stale-token' });
     expect(fetchMock.mock.calls[3]?.[1]?.headers).toMatchObject({ 'x-csrf-token': 'fresh-token' });
+  });
+
+  it('keeps Retry-After seconds on a lockout response for the login countdown', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'ACCOUNT_LOCKED',
+            message: '登录失败次数过多，请 15 分钟后再试',
+            details: [],
+          },
+        }),
+        {
+          status: 423,
+          headers: { 'content-type': 'application/json', 'retry-after': '900' },
+        },
+      ),
+    );
+
+    await expect(http.get('/auth/me')).rejects.toMatchObject({
+      code: 'ACCOUNT_LOCKED',
+      status: 423,
+      retryAfterSeconds: 900,
+    });
+  });
+
+  it('dispatches the unauthorized handler for any 401 response', async () => {
+    const handler = vi.fn();
+    onUnauthorized(handler);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            code: 'UNAUTHENTICATED',
+            message: '登录已失效，请重新登录',
+            details: [],
+          },
+        },
+        401,
+      ),
+    );
+
+    await expect(http.get('/auth/me')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it('injects CSRF and turns a 409 VERSION_CONFLICT into a Chinese refresh notice', async () => {

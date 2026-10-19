@@ -83,7 +83,7 @@ export class LockoutService {
     const lastFailureAt = summary.last_failure.getTime();
     const unlockAt = lastFailureAt + this.policy.lockMs;
     if (now < unlockAt) {
-      return { locked: true, remainingSeconds: Math.ceil((unlockAt - now) / 1000) };
+      return { locked: true, remainingSeconds: Math.min(Math.ceil(this.policy.lockMs / 1000), Math.ceil((unlockAt - now) / 1000)) };
     }
 
     await this.clearFailures(username, ip);

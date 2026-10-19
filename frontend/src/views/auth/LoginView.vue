@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, onUnmounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { isApiError } from '@/shared/api/http';
 import { useSessionStore } from '@/shared/stores/session';
-import { friendlyError } from '@/shared/text/messages';
+import { AUTH_COPY, friendlyError } from '@/shared/text/messages';
 
 const route = useRoute();
 const router = useRouter();
@@ -10,8 +11,56 @@ const session = useSessionStore();
 const form = reactive({ username: '', password: '' });
 const error = ref('');
 const submitting = ref(false);
+const lockedUntil = ref(0);
+const clockNow = ref(Date.now());
+let countdownTimer: ReturnType<typeof setInterval> | undefined;
+
+const remainingSeconds = computed(() => Math.max(0, Math.ceil((lockedUntil.value - clockNow.value) / 1000)));
+const locked = computed(() => remainingSeconds.value > 0);
+const lockMinutes = computed(() => Math.max(1, Math.ceil(remainingSeconds.value / 60)));
+const lockMessage = computed(() => AUTH_COPY.lockout(lockMinutes.value));
+
+const notice = computed(() => {
+  const reason = typeof route.query.reason === 'string' ? route.query.reason : '';
+  if (reason === 'session-expired') {
+    return AUTH_COPY.sessionExpired;
+  }
+  if (reason === 'password-changed') {
+    return AUTH_COPY.passwordChanged;
+  }
+  return '';
+});
+
+function stopCountdown(): void {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = undefined;
+  }
+}
+
+function startCountdown(seconds: number): void {
+  stopCountdown();
+  clockNow.value = Date.now();
+  lockedUntil.value = clockNow.value + Math.max(1, seconds) * 1000;
+  countdownTimer = setInterval(() => {
+    clockNow.value = Date.now();
+    if (remainingSeconds.value <= 0) {
+      stopCountdown();
+      lockedUntil.value = 0;
+      error.value = '';
+    }
+  }, 1000);
+}
+
+function lockSecondsFromMessage(message: string): number {
+  const matched = /请\s*(\d+)\s*分钟/.exec(message);
+  return matched ? Number(matched[1]) * 60 : 15 * 60;
+}
 
 function targetAfterLogin(): string {
+  if (session.mustChangePassword) {
+    return '/change-password';
+  }
   const redirect = route.query.redirect;
   if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && redirect !== '/login') {
     return redirect;
@@ -20,6 +69,10 @@ function targetAfterLogin(): string {
 }
 
 async function submit(): Promise<void> {
+  if (locked.value || submitting.value) {
+    return;
+  }
+
   error.value = '';
   if (!form.username.trim()) {
     error.value = '请输入用户名';
@@ -35,11 +88,20 @@ async function submit(): Promise<void> {
     await session.login(form.username.trim(), form.password);
     await router.replace(targetAfterLogin());
   } catch (caught) {
-    error.value = friendlyError(caught);
+    if (isApiError(caught) && caught.code === 'ACCOUNT_LOCKED') {
+      startCountdown(caught.retryAfterSeconds ?? lockSecondsFromMessage(caught.message));
+      error.value = '';
+    } else if (isApiError(caught) && caught.code === 'UNAUTHENTICATED') {
+      error.value = AUTH_COPY.credentialError;
+    } else {
+      error.value = friendlyError(caught);
+    }
   } finally {
     submitting.value = false;
   }
 }
+
+onUnmounted(stopCountdown);
 </script>
 
 <template>
@@ -52,28 +114,69 @@ async function submit(): Promise<void> {
           <small>教务工作台</small>
         </div>
       </div>
-      <h1 id="login-title">登录工作台</h1>
-      <p class="auth-intro">请使用学校分配的账号登录。</p>
+      <h1 id="login-title">{{ AUTH_COPY.loginTitle }}</h1>
+      <p class="auth-intro">{{ AUTH_COPY.loginIntro }}</p>
 
-      <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon class="auth-alert" />
+      <el-alert
+        v-if="notice"
+        data-auth-notice
+        type="warning"
+        :title="notice"
+        :closable="false"
+        show-icon
+        class="auth-alert"
+      />
+      <el-alert
+        v-if="error"
+        data-login-error
+        type="error"
+        :title="error"
+        :closable="false"
+        show-icon
+        class="auth-alert"
+      />
+      <el-alert
+        v-if="locked"
+        data-lockout
+        type="warning"
+        :title="lockMessage"
+        :closable="false"
+        show-icon
+        class="auth-alert"
+      />
 
-      <form @submit.prevent="submit">
-        <label class="field-label" for="username">用户名</label>
-        <el-input id="username" v-model="form.username" size="large" autocomplete="username" placeholder="请输入用户名" />
+      <form autocomplete="off" @submit.prevent="submit">
+        <label class="field-label" for="username">{{ AUTH_COPY.usernameLabel }}</label>
+        <el-input
+          id="username"
+          v-model="form.username"
+          name="username"
+          size="large"
+          autocomplete="off"
+          :placeholder="AUTH_COPY.usernamePlaceholder"
+        />
 
-        <label class="field-label" for="password">密码</label>
+        <label class="field-label" for="password">{{ AUTH_COPY.passwordLabel }}</label>
         <el-input
           id="password"
           v-model="form.password"
+          name="password"
           size="large"
           type="password"
-          autocomplete="current-password"
-          placeholder="请输入密码"
+          autocomplete="off"
+          :placeholder="AUTH_COPY.passwordPlaceholder"
           show-password
         />
 
-        <el-button class="login-button" type="primary" size="large" native-type="submit" :loading="submitting">
-          登录系统
+        <el-button
+          class="login-button"
+          type="primary"
+          size="large"
+          native-type="submit"
+          :loading="submitting"
+          :disabled="locked || submitting"
+        >
+          {{ AUTH_COPY.loginButton }}
         </el-button>
       </form>
     </section>
