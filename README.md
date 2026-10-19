@@ -194,6 +194,7 @@ PRINT_BASE_URL=http://localhost:3000
 | `docs/trace/runs/v1/agent_plane.md` | 卡片规划、差距报告、校验清单、依赖图 |
 | `docs/trace/runs/v1/issues.yaml` | 首轮全部开发卡片 |
 | `docs/trace/runs/v1/test-results/` | 逐卡片测试案例对比验证（设计态，未执行） |
+| `docs/knowledge/designs/INT-01-integration-acceptance.md` | 跨卡端到端验收清单、固定锚点、七组脚本契约与缺陷回派矩阵（设计态，未执行） |
 | `conventions.md` | 9 类跨卡片共享技术约定 + 枚举速查 |
 | `schema-shared.sql` | 8 张共享基础设施表 |
 | `seed-anchors.sql` | 跨域共享测试数据锚点 |
