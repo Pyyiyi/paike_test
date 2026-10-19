@@ -20,7 +20,10 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:migrate": "tsx backend/src/scripts/migrate.ts",
-    "db:seed": "tsx backend/src/scripts/seed.ts"
+    "db:seed": "tsx backend/src/scripts/seed.ts",
+    "contracts:lint": "npx --yes @redocly/cli@latest lint contracts/openapi.yaml",
+    "contracts:validate": "python3 contracts/validate.py",
+    "contracts:check": "npm run contracts:lint && npm run contracts:validate"
   },
   "dependencies": {
     "argon2": "^0.41.1",
