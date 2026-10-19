@@ -1,6 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { AppError } from '../errors/app-error';
-import { writeSecurityAudit, type SecurityAuditInput } from '../audit/security-audit';
+import { AppError, createAppError } from '../errors/app-error';
+import type { SecurityAuditInput } from '../audit/security-audit';
 import { destroySession, touchSession } from './session';
 import type { AuthRuntime } from './runtime';
 
@@ -28,7 +28,7 @@ interface UserRow {
 
 async function safeAudit(runtime: AuthRuntime, input: SecurityAuditInput): Promise<void> {
   try {
-    await writeSecurityAudit(runtime.pool, input);
+    await runtime.writeAudit(input);
   } catch {
     // Audit failures must not break authentication, and must never log secrets.
   }
@@ -109,7 +109,7 @@ export function createLoadCurrentUser(runtime: AuthRuntime): RequestHandler {
 
 export const requireAuth: RequestHandler = (request, _response, next) => {
   if (!request.currentUser) {
-    next(new AppError(401, 'UNAUTHENTICATED', '登录已失效，请重新登录'));
+    next(createAppError('UNAUTHENTICATED', '登录已失效，请重新登录'));
     return;
   }
   next();
@@ -118,11 +118,11 @@ export const requireAuth: RequestHandler = (request, _response, next) => {
 export function requireRole(...roles: UserRole[]): RequestHandler {
   return (request, _response, next) => {
     if (!request.currentUser) {
-      next(new AppError(401, 'UNAUTHENTICATED', '登录已失效，请重新登录'));
+      next(createAppError('UNAUTHENTICATED', '登录已失效，请重新登录'));
       return;
     }
     if (!roles.includes(request.currentUser.role)) {
-      next(new AppError(403, 'FORBIDDEN', '您没有权限执行此操作'));
+      next(createAppError('FORBIDDEN', '您没有权限执行此操作'));
       return;
     }
     next();
@@ -154,6 +154,6 @@ export function createForcedPasswordChangeGuard(): RequestHandler {
       return;
     }
 
-    next(new AppError(403, 'STATE_CONFLICT', '请先修改初始密码'));
+    next(new AppError('STATE_CONFLICT', 403, '请先修改初始密码'));
   };
 }

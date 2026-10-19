@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { RequestHandler, Response } from 'express';
 import type { AuthConfig } from '../../config/auth';
-import { AppError } from '../errors/app-error';
+import { createAppError } from '../errors/app-error';
 
 export const CSRF_COOKIE_NAME = 'csrf';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -43,7 +43,7 @@ export function createCsrfMiddleware(): RequestHandler {
       typeof headerToken !== 'string' ||
       !tokensEqual(cookieToken, headerToken)
     ) {
-      next(new AppError(403, 'FORBIDDEN', '请求校验失败，请刷新页面后重试'));
+      next(createAppError('FORBIDDEN', '请求校验失败，请刷新页面后重试'));
       return;
     }
 

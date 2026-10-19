@@ -16,6 +16,21 @@ export function queryMany<T extends QueryResultRow>(sql: string, params?: unknow
 export function healthCheck(): Promise<boolean>;
 export function closePool(): Promise<void>;
 
+// @/shared/db/optimistic
+export interface Versioned { version: number; }
+export function guardVersion<T extends Versioned>(entity: T | null | undefined, expectedVersion: number, message?: string): T;
+export function assertVersionMatches(currentVersion: number | null | undefined, expectedVersion: number, message?: string): void;
+export function updateWithVersion<T extends QueryResultRow>(tx: Tx, input: {
+  table: string;
+  id: string;
+  expectedVersion: number;
+  values: Record<string, unknown>;
+  idColumn?: string;
+  versionColumn?: string;
+  returning?: string;
+  message?: string;
+}): Promise<T>;
+
 // @/shared/db/transaction
 export type Tx = { query: typeof query; queryOne: typeof queryOne; queryMany: typeof queryMany };
 export function withTransaction<T>(fn: (tx: Tx) => Promise<T>, options?: {
@@ -64,6 +79,27 @@ interface ErrorDetail {
   rawValue?: string;
 }
 ```
+
+### 2.1 校验（backend）
+
+```ts
+// @/shared/validation/common
+export const uuidSchema: ZodString;
+export const paginationSchema: ZodObject<{ page: ZodDefault<ZodNumber>; pageSize: ZodDefault<ZodNumber> }>;
+export const versionSchema: ZodNumber;
+export const dateSchema: ZodString;
+export const weekdaySchema: ZodNumber;
+export const periodSchema: ZodNumber;
+export const weekParitySchema: ZodEnum<['ALL', 'ODD', 'EVEN']>;
+export const slotSchema: ZodObject<{ weekday: ZodNumber; period: ZodNumber }>;
+export const slotListSchema: ZodArray<typeof slotSchema>;
+export const slotExpressionSchema: ZodPipeline<ZodString, typeof slotListSchema>;
+export function parseBody<T>(schema: ZodType<T>): RequestHandler;
+// 别名：validateBody 与 parseBody 完全一致，供模块模板使用。
+export const validateBody: typeof parseBody;
+```
+
+> 分页默认 `page=1`、`pageSize=20`，最大 100；日期统一 `YYYY-MM-DD`；`weekParitySchema` 覆盖 `ALL | ODD | EVEN`。
 
 ---
 
@@ -205,6 +241,8 @@ export function writeSecurityAudit(input: SecurityAuditInput): Promise<void>;
 
 - 操作日志内容必须可直接展示，例如「发布 2026 秋季正式课表（方案 2026秋-v4）」。
 - 所有日志写入禁止记录密码、Cookie、CSRF Token。
+- 验收标准别名：`enqueue` = `appendEvent`；`operationLog.write` = `writeOperationLog`；`securityAudit.write` = `writeSecurityAudit`。
+- 所有时间写入经 `Clock` 注入；测试使用 `fixedClock`，业务使用 `systemClock`。
 
 ---
 
@@ -491,6 +529,7 @@ export class LockoutService {
 
 // @/shared/auth/runtime
 export function createAuthRuntime(input: { config: AuthConfig; pool: Pool; now?: () => number }): AuthRuntime;
+// AuthRuntime.writeAudit(input) binds P0-03 writeSecurityAudit to the injected pool/clock.
 ```
 
 装配约定：`createApp({ auth })` 在注入 `AuthRuntime` 后按 `cookie-parser → session → CSRF → loadCurrentUser → forced-password-guard → auth router` 顺序挂载；未注入时仅暴露健康检查，便于单元测试。

@@ -1,9 +1,14 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
-type AsyncHandler = (request: Request, response: Response, next: NextFunction) => Promise<unknown>;
+export type AsyncRequestHandler = (
+  request: Request,
+  response: Response,
+  next: NextFunction,
+) => Promise<unknown>;
 
-export function asyncHandler(handler: AsyncHandler): RequestHandler {
+/** 将异步处理器的拒绝转交给 Express 错误中间件。 */
+export function asyncHandler(handler: AsyncRequestHandler): RequestHandler {
   return (request, response, next) => {
-    void handler(request, response, next).catch(next);
+    void Promise.resolve(handler(request, response, next)).catch(next);
   };
 }

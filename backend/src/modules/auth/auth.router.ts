@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { writeSecurityAudit } from '../../shared/audit/security-audit';
 import { issueCsrfToken } from '../../shared/auth/csrf';
 import { normalizeIp } from '../../shared/auth/ip';
 import { hashPassword, validatePasswordPolicy, verifyPassword } from '../../shared/auth/password';
 import { requireAuth, type CurrentUser } from '../../shared/auth/rbac';
 import type { AuthRuntime } from '../../shared/auth/runtime';
 import { createSession, destroySession } from '../../shared/auth/session';
-import { AppError } from '../../shared/errors/app-error';
+import { createAppError } from '../../shared/errors/app-error';
 import { asyncHandler } from '../../shared/http/async-handler';
 import { findUserById, findUserByUsername, markLoginSuccess, updateUserPassword } from './auth.repository';
 
@@ -24,9 +23,7 @@ const ChangePasswordSchema = z.object({
 function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    throw new AppError(
-      400,
-      'VALIDATION_ERROR',
+    throw createAppError('VALIDATION_ERROR',
       '保存失败，请检查输入内容',
       parsed.error.issues.map((issue) => ({
         field: issue.path.join('.') || undefined,
@@ -62,11 +59,11 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
       const input = parseBody(LoginSchema, request.body);
       const username = input.username.trim();
       const ip = normalizeIp(request.ip);
-      const userAgent = request.get('user-agent') ?? null;
+      const userAgent = request.get('user-agent') ?? undefined;
 
       const remainingSeconds = await runtime.lockout.lockRemainingSeconds(username, ip);
       if (remainingSeconds > 0) {
-        await writeSecurityAudit(runtime.pool, {
+        await runtime.writeAudit({
           actorName: username,
           action: 'LOGIN',
           result: 'DENIED',
@@ -74,9 +71,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
           userAgent,
           detail: { reason: 'ACCOUNT_LOCKED' },
         });
-        throw new AppError(
-          423,
-          'ACCOUNT_LOCKED',
+        throw createAppError('ACCOUNT_LOCKED',
           `登录失败次数过多，请 ${Math.max(1, Math.ceil(remainingSeconds / 60))} 分钟后再试`,
         );
       }
@@ -84,7 +79,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
       const user = await findUserByUsername(runtime.pool, username);
       if (!user) {
         await runtime.lockout.recordFailure(username, ip, 'USER_NOT_FOUND');
-        await writeSecurityAudit(runtime.pool, {
+        await runtime.writeAudit({
           actorName: username,
           action: 'LOGIN',
           result: 'FAILURE',
@@ -92,12 +87,12 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
           userAgent,
           detail: { reason: 'INVALID_CREDENTIALS' },
         });
-        throw new AppError(401, 'UNAUTHENTICATED', '用户名或密码错误');
+        throw createAppError('UNAUTHENTICATED', '用户名或密码错误');
       }
 
       if (user.status !== 'ENABLED') {
         await runtime.lockout.recordFailure(username, ip, 'ACCOUNT_DISABLED');
-        await writeSecurityAudit(runtime.pool, {
+        await runtime.writeAudit({
           actorId: user.userId,
           actorName: user.username,
           action: 'LOGIN',
@@ -106,13 +101,13 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
           userAgent,
           detail: { reason: 'ACCOUNT_DISABLED' },
         });
-        throw new AppError(403, 'FORBIDDEN', '账号已停用，请联系管理员');
+        throw createAppError('FORBIDDEN', '账号已停用，请联系管理员');
       }
 
       const passwordMatches = await verifyPassword(user.passwordHash, input.password);
       if (!passwordMatches) {
         await runtime.lockout.recordFailure(username, ip, 'INVALID_PASSWORD');
-        await writeSecurityAudit(runtime.pool, {
+        await runtime.writeAudit({
           actorId: user.userId,
           actorName: user.username,
           action: 'LOGIN',
@@ -121,13 +116,13 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
           userAgent,
           detail: { reason: 'INVALID_CREDENTIALS' },
         });
-        throw new AppError(401, 'UNAUTHENTICATED', '用户名或密码错误');
+        throw createAppError('UNAUTHENTICATED', '用户名或密码错误');
       }
 
       await runtime.lockout.recordSuccess(username, ip);
       await markLoginSuccess(runtime.pool, user.userId);
       await createSession(request, user.userId, runtime.config);
-      await writeSecurityAudit(runtime.pool, {
+      await runtime.writeAudit({
         actorId: user.userId,
         actorName: user.username,
         action: 'LOGIN',
@@ -146,13 +141,13 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
     requireAuth,
     asyncHandler(async (request, response) => {
       const user = request.currentUser as CurrentUser;
-      await writeSecurityAudit(runtime.pool, {
+      await runtime.writeAudit({
         actorId: user.userId,
         actorName: user.username,
         action: 'LOGOUT',
         result: 'SUCCESS',
         ip: normalizeIp(request.ip),
-        userAgent: request.get('user-agent') ?? null,
+        userAgent: request.get('user-agent') ?? undefined,
       });
       await destroySession(request, runtime.config);
       response.json({ data: { ok: true } });
@@ -171,19 +166,19 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
       const input = parseBody(ChangePasswordSchema, request.body);
 
       if (input.currentPassword === input.newPassword) {
-        throw new AppError(400, 'VALIDATION_ERROR', '新密码不能与当前密码相同', [
+        throw createAppError('VALIDATION_ERROR', '新密码不能与当前密码相同', [
           { field: 'newPassword', message: '新密码不能与当前密码相同' },
         ]);
       }
 
       const user = await findUserById(runtime.pool, currentUser.userId);
       if (!user) {
-        throw new AppError(401, 'UNAUTHENTICATED', '登录已失效，请重新登录');
+        throw createAppError('UNAUTHENTICATED', '登录已失效，请重新登录');
       }
 
       const currentMatches = await verifyPassword(user.passwordHash, input.currentPassword);
       if (!currentMatches) {
-        throw new AppError(400, 'VALIDATION_ERROR', '当前密码不正确', [
+        throw createAppError('VALIDATION_ERROR', '当前密码不正确', [
           { field: 'currentPassword', message: '当前密码不正确' },
         ]);
       }
@@ -193,7 +188,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
         requiredClasses: runtime.config.passwordRequiredClasses,
       });
       if (!policy.ok) {
-        throw new AppError(400, 'VALIDATION_ERROR', policy.message, [
+        throw createAppError('VALIDATION_ERROR', policy.message, [
           { field: 'newPassword', message: policy.message },
         ]);
       }
@@ -204,13 +199,13 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
         parallelism: runtime.config.argon2Parallelism,
       });
       await updateUserPassword(runtime.pool, currentUser.userId, passwordHash);
-      await writeSecurityAudit(runtime.pool, {
+      await runtime.writeAudit({
         actorId: currentUser.userId,
         actorName: currentUser.username,
         action: 'CHANGE_PASSWORD',
         result: 'SUCCESS',
         ip: normalizeIp(request.ip),
-        userAgent: request.get('user-agent') ?? null,
+        userAgent: request.get('user-agent') ?? undefined,
       });
 
       response.json({ data: { ok: true } });

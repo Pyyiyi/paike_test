@@ -91,7 +91,7 @@ entries:
     side: backend
     path: backend/src/shared/http/envelope.ts
     import: "@/shared/http/envelope"
-    exports: [ok, created, noContent, paginated, fail]
+    exports: [ok, created, noContent, paginated, fail, SuccessEnvelope, PageData, ErrorEnvelope]
     ownerCard: P0-03
 
   - id: http.async-handler
@@ -112,49 +112,63 @@ entries:
     side: backend
     path: backend/src/shared/errors/app-error.ts
     import: "@/shared/errors/app-error"
-    exports: [AppError, ValidationError, NotFoundError, ForbiddenError, ConflictError, VersionConflictError]
+    exports: [AppError, ValidationError, NotFoundError, ForbiddenError, ConflictError, VersionConflictError, createAppError, isAppError, ErrorDetail, ConflictCode]
     ownerCard: P0-03
 
   - id: errors.codes
     side: backend
     path: backend/src/shared/errors/codes.ts
     import: "@/shared/errors/codes"
-    exports: [ErrorCode, ERROR_MESSAGES]
+    exports: [ErrorCode, ERROR_MESSAGES, ERROR_HTTP_STATUS, httpStatusFor]
     ownerCard: P0-03
 
   - id: errors.handler
     side: backend
     path: backend/src/shared/errors/error-handler.ts
     import: "@/shared/errors/error-handler"
-    exports: [errorHandler, notFoundHandler]
+    exports: [errorHandler, notFoundHandler, normalizeError]
     ownerCard: P0-03
 
   - id: validation.common
     side: backend
     path: backend/src/shared/validation/common.ts
     import: "@/shared/validation/common"
-    exports: [uuidSchema, paginationSchema, versionSchema, weekdaySchema, periodSchema, slotExpressionSchema, slotListSchema, parseBody]
+    exports: [uuidSchema, paginationSchema, versionSchema, dateSchema, weekdaySchema, periodSchema, weekParitySchema, slotSchema, slotListSchema, slotExpressionSchema, parseBody, validateBody]
+    ownerCard: P0-03
+
+  - id: db.optimistic
+    side: backend
+    path: backend/src/shared/db/optimistic.ts
+    import: "@/shared/db/optimistic"
+    exports: [guardVersion, assertVersionMatches, updateWithVersion, OptimisticUpdateInput, Versioned]
     ownerCard: P0-03
 
   - id: events.outbox
     side: backend
     path: backend/src/shared/events/outbox.ts
     import: "@/shared/events/outbox"
-    exports: [appendEvent, dispatchPendingEvents, registerEventHandler]
+    exports: [appendEvent, enqueue, dispatchPendingEvents, registerEventHandler, clearEventHandlers, OutboxEvent, AppendEventInput, DispatchOutboxOptions]
     ownerCard: P0-03
 
   - id: audit.operation-log
     side: backend
     path: backend/src/shared/audit/operation-log.ts
     import: "@/shared/audit/operation-log"
-    exports: [writeOperationLog, OperationLogInput]
+    exports: [writeOperationLog, operationLog, OperationLogInput, OperationModule]
     ownerCard: P0-03
 
   - id: audit.security-audit
     side: backend
     path: backend/src/shared/audit/security-audit.ts
     import: "@/shared/audit/security-audit"
-    exports: [writeSecurityAudit, SecurityAuditInput]
+    exports: [writeSecurityAudit, securityAudit, SecurityAuditInput, SecurityAuditOptions, AuditQuery]
+    ownerCard: P0-03
+
+  - id: audit.redact
+    side: backend
+    path: backend/src/shared/audit/redact.ts
+    import: "@/shared/audit/redact"
+    exports: [maskPhone, maskSensitiveText, redactSensitive]
     ownerCard: P0-03
 
   # ---------------------------------------------------------------------------
@@ -171,7 +185,7 @@ entries:
     side: backend
     path: backend/src/shared/time/academic-week.ts
     import: "@/shared/time/academic-week"
-    exports: [weekIndexForDate, parityForWeekIndex, weeksInSemester, resolveWeekParity]
+    exports: [weekIndexForDate, parityForWeekIndex, weeksInSemester, resolveWeekParity, LessonParity, WeekParity]
     ownerCard: P0-03
 
   - id: time.slot-expression

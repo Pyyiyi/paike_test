@@ -66,13 +66,13 @@
 ### 2.5 锁定与审计
 
 - `@/shared/auth/lockout`：`LockoutService`（`recordFailure` / `recordSuccess` / `isLocked` / `lockRemainingSeconds` / `clearFailures`）。
-- `@/shared/audit/security-audit`：`writeSecurityAudit(pool, input)`。
-- `@/shared/errors/app-error`、`@/shared/errors/codes`：统一错误封装与错误码。
-- `@/shared/http/async-handler`：异步路由异常转交。
+- `@/shared/audit/security-audit`：P0-03 的 `writeSecurityAudit(input, { query, clock })`；认证运行时通过 `runtime.writeAudit(input)` 绑定当前连接池与时钟。
+- `@/shared/errors/app-error`、`@/shared/errors/codes`：使用 P0-03 的统一 `AppError` / `createAppError`（`httpStatus` 映射）。
+- `@/shared/http/async-handler`：使用 P0-03 的异步路由异常转交。
 
 ### 2.6 运行时装配
 
-- `@/shared/auth/runtime`：`createAuthRuntime({ config, pool, now? })`，返回 `{ config, pool, now, lockout }`；`createApp({ auth })` 仅在注入该运行时后挂载认证栈。
+- `@/shared/auth/runtime`：`createAuthRuntime({ config, pool, now? })`，返回 `{ config, pool, now, lockout, writeAudit }`；`createApp({ auth })` 仅在注入该运行时后挂载认证栈。
 
 ## 3. 安全审计用例说明
 
@@ -101,6 +101,6 @@
 
 ## 4. 验证结果
 
-- 自动化：`TEST_DATABASE_URL=... npm test` → 6 个测试文件、33 个测试通过。其中 `auth.integration.test.ts` 8 项，覆盖登录、统一错误、锁定/解锁、退出、CSRF、强制改密、停用账号、空闲过期。
+- 自动化：`TEST_DATABASE_URL=... npm test` → 16 个测试文件、73 个测试通过（合并 P0-03 后全量）。其中 `auth.integration.test.ts` 9 项，覆盖登录、统一错误、锁定/解锁、退出、CSRF、强制改密、停用账号、空闲过期。
 - 静态检查：`npm run lint`、`npm run typecheck`、`npm run build` 通过。
 - 运行时：启动 `node dist/main.js` 后，`GET /auth/csrf` → 200；无 CSRF 登录 → 403；正确登录 → 200；`GET /auth/me` → 200；退出 → 200；旧 Cookie 访问 `/auth/me` → 401。服务端日志仅输出启动信息，未出现密码/Cookie/Token。
