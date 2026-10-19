@@ -216,7 +216,7 @@ add('route/role parity','%d contract routes; %d navigation rows; %d permission r
 
 # Events expected inventory and dependency-graph topology
 required_events={
- 'bc.registry.semester.created','bc.registry.semester.status-changed','bc.registry.schedule-template.version-created','bc.registry.grade.created','bc.registry.class.created','bc.registry.subject.rule-configured',
+ 'bc.registry.semester.created','bc.registry.semester.status-changed','bc.registry.semester.current-changed','bc.registry.schedule-template.version-created','bc.registry.grade.created','bc.registry.class.created','bc.registry.subject.rule-configured',
  'bc.resource.teacher.created','bc.resource.teacher.deactivated','bc.resource.assignment.configured','bc.resource.venue.created','bc.resource.combined-class.configured','bc.resource.walking-group.configured','bc.resource.teacher.account-provisioned',
  'bc.timetable.plan.generated','bc.timetable.plan.published','bc.timetable.plan.archived','bc.timetable.lesson.moved','bc.timetable.conflict.ignored-once',
  'bc.governance.operation.logged','bc.identity.user.created','bc.identity.user.disabled','bc.identity.user.role-changed',
@@ -242,7 +242,7 @@ for name,item in dg_events.items():
         ce=contract_events[name]
         check(ce['producer']['context']==item['producer'],'event producer conflict: '+name)
         check({c['context'] for c in ce['consumers']}==set(item.get('consumers',[])),'event consumers conflict: '+name)
-add('event topology','25 unique events; dependency-graph subtree matches producer/consumer')
+add('event topology','26 unique events; dependency-graph subtree matches producer/consumer')
 
 # Cross-context write inventory
 cc=read(os.path.join(C,'cross-context-writes.md'))

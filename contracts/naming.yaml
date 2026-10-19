@@ -1441,6 +1441,10 @@ fieldDictionary:
       dbColumn: published_plan_id
       apiType: string
       nullable: true
+    publishedPlanName:
+      dbColumn: published_plan_name
+      apiType: string
+      nullable: true
   ControlledVocabulary:
     vocabId:
       dbColumn: vocab_id

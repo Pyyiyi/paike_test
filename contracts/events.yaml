@@ -80,6 +80,36 @@ events:
         type: string
       toStatus:
         type: string
+- name: bc.registry.semester.current-changed
+  schemaVersion: 1
+  producer:
+    context: registry
+    cards:
+    - D01
+    - D07
+  consumers:
+  - context: timetable
+    cards:
+    - D05
+    - D06
+  - context: governance
+    cards:
+    - D07
+  aggregateType: Semester
+  payload:
+    type: object
+    required:
+    - eventId
+    - occurredAt
+    - occurredBy
+    - previousSemesterId
+    - currentSemesterId
+    properties:
+      eventId: *id001
+      occurredAt: *id002
+      occurredBy: *id003
+      previousSemesterId: *id003
+      currentSemesterId: *id001
 - name: bc.registry.schedule-template.version-created
   schemaVersion: 1
   producer:

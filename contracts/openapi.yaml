@@ -5739,15 +5739,17 @@ components:
           $ref: '#/components/schemas/OperationModule'
         action:
           type: string
+          description: 中文动作，如「发布」「保存调课」；不得写错误码或英文枚举
         content:
           type: string
+          description: 中文可读摘要；不得写错误码或英文枚举
         targetType:
           type: string
+          description: 业务对象类型；七类关键操作必须可定位到具体对象
         targetId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
+          description: 业务对象 UUID；七类关键操作不得为空
         requestId:
           type:
           - string
@@ -5763,6 +5765,7 @@ components:
       - action
       - content
       - targetType
+      - targetId
       - createdAt
     SemesterArchive:
       type: object
@@ -5783,8 +5786,7 @@ components:
           type: string
           format: date-time
         summary:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/SemesterArchiveSummary'
       required:
       - archiveId
       - semesterId
@@ -5792,6 +5794,50 @@ components:
       - archivedBy
       - archivedAt
       - summary
+    SemesterArchiveSummary:
+      type: object
+      properties:
+        semesterName:
+          type: string
+        academicYear:
+          type: string
+        term:
+          $ref: '#/components/schemas/Term'
+        planName:
+          type: string
+        planVersion:
+          type: integer
+          minimum: 0
+        publishedAt:
+          type: string
+          format: date-time
+        classCount:
+          type: integer
+          minimum: 0
+        lessonCount:
+          type: integer
+          minimum: 0
+        unscheduledCount:
+          type: integer
+          minimum: 0
+        conflictCount:
+          type: integer
+          minimum: 0
+        snapshotHash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      required:
+      - semesterName
+      - academicYear
+      - term
+      - planName
+      - planVersion
+      - publishedAt
+      - classCount
+      - lessonCount
+      - unscheduledCount
+      - conflictCount
+      - snapshotHash
     ArchiveStatus:
       type: object
       properties:
@@ -5809,6 +5855,10 @@ components:
           - string
           - 'null'
           format: uuid
+        publishedPlanName:
+          type:
+          - string
+          - 'null'
       required:
       - semesterId
       - canArchive
@@ -6883,13 +6933,19 @@ components:
       properties:
         draftResolution:
           type: string
+          description: SAVE 保留所选草稿，DISCARD 删除所选草稿，CANCEL 零写入
           enum:
           - SAVE
           - DISCARD
           - CANCEL
+        draftPlanId:
+          type: string
+          format: uuid
+          description: 当前编辑草稿；存在多个 DRAFT 时必填
         planVersion:
           type: integer
           minimum: 0
+          description: SAVE/DISCARD 时校验所选草稿版本
       required: []
     UserCreateRequest:
       type: object

@@ -685,18 +685,19 @@ CREATE INDEX IF NOT EXISTS idx_adjustment_history_scope ON adjustment_history (p
 CREATE TABLE IF NOT EXISTS operation_log (
   log_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   operator_id   uuid NOT NULL REFERENCES sys_user(user_id),
-  operator_name text NOT NULL,
+  operator_name text NOT NULL CHECK (btrim(operator_name) <> ''),
   module        operation_module NOT NULL,
-  action        text NOT NULL,
-  content       text NOT NULL,
-  target_type   text NOT NULL,
-  target_id     uuid NULL,
+  action        text NOT NULL CHECK (btrim(action) <> ''),
+  content       text NOT NULL CHECK (btrim(content) <> ''),
+  target_type   text NOT NULL CHECK (btrim(target_type) <> ''),
+  target_id     uuid NOT NULL,
   request_id    text NULL,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_operation_log_operator_created ON operation_log (operator_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_operation_log_module_created ON operation_log (module, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log (created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_operator_created ON operation_log (operator_id, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_module_created ON operation_log (module, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_operator_module_created ON operation_log (operator_id, module, created_at DESC, log_id DESC);
 
 CREATE TABLE IF NOT EXISTS semester_archive (
   archive_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -705,8 +706,24 @@ CREATE TABLE IF NOT EXISTS semester_archive (
   archived_by uuid NOT NULL REFERENCES sys_user(user_id),
   archived_at timestamptz NOT NULL DEFAULT now(),
   summary     jsonb NOT NULL,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_semester_archive_summary_object CHECK (jsonb_typeof(summary) = 'object'),
+  CONSTRAINT ck_semester_archive_summary_fields CHECK (
+    summary ? 'semesterName'
+    AND summary ? 'academicYear'
+    AND summary ? 'term'
+    AND summary ? 'planName'
+    AND summary ? 'planVersion'
+    AND summary ? 'publishedAt'
+    AND summary ? 'classCount'
+    AND summary ? 'lessonCount'
+    AND summary ? 'unscheduledCount'
+    AND summary ? 'conflictCount'
+    AND summary ? 'snapshotHash'
+  )
 );
+CREATE INDEX IF NOT EXISTS idx_semester_archive_archived_at
+  ON semester_archive (archived_at DESC, archive_id DESC);
 
 CREATE TABLE IF NOT EXISTS import_batch (
   batch_id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -793,7 +810,7 @@ $$;
 DO $$
 DECLARE table_name text;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY['operation_log','conflict_ignore','adjustment_history','sys_audit_log']
+  FOREACH table_name IN ARRAY ARRAY['operation_log','semester_archive','conflict_ignore','adjustment_history','sys_audit_log']
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trg_%I_append_only ON %I', table_name, table_name);
     EXECUTE format('CREATE TRIGGER trg_%I_append_only BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation()', table_name, table_name);
@@ -804,7 +821,7 @@ COMMENT ON TABLE teacher IS '教师主数据；employee_no 是登录账号的唯
 COMMENT ON TABLE semester IS '学期；is_current 全校至多一个；存档后只读';
 COMMENT ON TABLE timetable_plan IS '排课方案；同一学期至多一个 PUBLISHED';
 COMMENT ON TABLE conflict_ignore IS 'D21 只本次忽略记录；不修改配置';
-COMMENT ON TABLE semester_archive IS '学期存档快照索引；一个学期只允许存档一次';
-COMMENT ON TABLE operation_log IS '七类关键操作日志；只追加，无更新/删除 API';
+COMMENT ON TABLE semester_archive IS '学期存档摘要索引；一个学期只允许存档一次；摘要与触发追加写保护不可修改';
+COMMENT ON TABLE operation_log IS '关键操作与显式审计动作；只追加，无更新/删除 API，无清理任务';
 COMMENT ON TABLE import_batch IS '导入批次；errors 同时保存 ERROR/WARNING，最多 1000 条，failed 只统计行级 ERROR 的去重数据行';
 COMMENT ON TABLE print_template IS '打印模板；预设模板不可删除';

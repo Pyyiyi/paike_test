@@ -213,6 +213,12 @@ events:
     payload: { semesterId, fromStatus, toStatus, occurredAt, occurredBy }
     card: D01
 
+  - name: bc.registry.semester.current-changed
+    producer: registry
+    consumers: [timetable, governance]
+    payload: { previousSemesterId, currentSemesterId, occurredAt, occurredBy }
+    card: D01 / D07
+
   - name: bc.registry.schedule-template.version-created
     producer: registry
     consumers: [timetable]

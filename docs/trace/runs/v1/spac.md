@@ -261,7 +261,7 @@ DDD 提供 29 组命令/事件，本设计全部保留并补充实现细节：
 
 - 命令示例：`CreateSemester`、`PublishTemplateVersion`、`ConfigureSubjectRule`、`CreateTeacher`、`ConfigureAssignment`、`CreateCombinedClass`、`GeneratePlan`、`PublishPlan`、`ArchiveSemester`、`ProvisionTeacherAccount`。
 - 事件全部经 `sys_outbox_event` 同事务落库，提交后由 dispatcher 投递；事件名遵循 `bc.<context>.<entity>.<past-tense>`。
-- 关键事件：`bc.timetable.plan.generated`、`plan.published`、`plan.archived`、`lesson.moved`、`conflict.ignored-once`、`bc.registry.semester.status-changed`、`bc.resource.teacher.deactivated`、`bc.identity.user.*`。
+- 关键事件：`bc.timetable.plan.generated`、`plan.published`、`plan.archived`、`lesson.moved`、`conflict.ignored-once`、`bc.registry.semester.status-changed`、`bc.registry.semester.current-changed`、`bc.resource.teacher.deactivated`、`bc.identity.user.*`。
 
 事件消费者仅用于审计与缓存失效，不承担业务正确性；业务一致性仍由同事务写入保证。
 
@@ -381,7 +381,7 @@ UNLOCKED ──────────▶ LOCKED ──────────
 
 ### 5.7 存档与只读
 
-- 存档事务：学期 `→ARCHIVED`、当前 `PUBLISHED → ARCHIVED`、写 `semester_archive`、写操作日志、写 outbox。
+- 存档事务：学期 `→ARCHIVED`、当前 `PUBLISHED → ARCHIVED`、写冻结 `semester_archive`（含 `snapshotHash`）、写操作日志、写 outbox；任一失败全部回滚。
 - 存档后：全部写接口 `409 STATE_CONFLICT`；查看、导出、打印可用。
 - 模板/学期后续编辑不影响已存档快照。
 
@@ -413,7 +413,7 @@ UNLOCKED ──────────▶ LOCKED ──────────
 - 成功 `{ "data": ... }`；列表 `{ "data": { "items", "page", "pageSize", "total" } }`；失败 `{ "error": { "code", "message", "details", "requestId" } }`。
 - 所有非 GET 请求要求 `X-CSRF-Token`；写请求要求 `version`。
 - 分页 `page` 从 1，`pageSize` 默认 20、最大 100；排序白名单。
-- 错误码：`VALIDATION_ERROR` / `UNAUTHENTICATED` / `FORBIDDEN` / `NOT_FOUND` / `VERSION_CONFLICT` / `DUPLICATE` / `REFERENCE_PROTECTED` / `STATE_CONFLICT` / `DRAFT_EXISTS` / `FILE_TOO_LARGE` / `IMPORT_ROW_ERROR` / `ACCOUNT_LOCKED` / `INTERNAL_ERROR`。
+- 错误码：`VALIDATION_ERROR` / `UNAUTHENTICATED` / `FORBIDDEN` / `NOT_FOUND` / `VERSION_CONFLICT` / `DUPLICATE` / `REFERENCE_PROTECTED` / `STATE_CONFLICT` / `DRAFT_EXISTS` / `FILE_TOO_LARGE` / `IMPORT_ROW_ERROR` / `ACCOUNT_LOCKED` / `INTERNAL_ERROR` / `DATABASE_UNAVAILABLE`。
 - 用户可见 `message` 必须中文且说明「发生了什么 + 怎么办」；`code` 仅供程序判断。
 
 ### 6.2 认证与会话（P0-02 / P0-08）
@@ -618,7 +618,7 @@ UNLOCKED ──────────▶ LOCKED ──────────
 
 | 日志 | 表 | 内容 | 保留 |
 |------|----|------|------|
-| 业务操作日志 | `operation_log` | 七类关键操作，中文可读 | 永久，只追加 |
+| 业务操作日志 | `operation_log` | 七类关键操作 + D05/D21 显式审计；动作/内容中文可读 | 永久，只追加；无清理任务 |
 | 安全审计 | `sys_audit_log` | 认证、账号、越权 | 永久 |
 | 应用日志 | Pino stdout/文件 | 请求、错误、耗时 | 按运维策略轮转 |
 
@@ -746,7 +746,7 @@ Admin → GET /archive-status → 有 PUBLISHED？
   → 全部写接口 409；查看/导出可用
 ```
 
-切换学期若当前有未保存草稿：未传 `draftResolution` → `409 DRAFT_EXISTS` → 前端三选一（保存/丢弃/取消），`CANCEL` 不写任何数据。
+切换学期若当前学期存在持久化 `DRAFT`：未传 `draftResolution` → `409 DRAFT_EXISTS` → 前端三选一（SAVE 保留 / DISCARD 删除所选草稿 / CANCEL 取消）；`CANCEL` 不写任何数据。目标学期为 `ARCHIVED` 时拒绝切换。
 
 ### 9.6 调课时序
 
