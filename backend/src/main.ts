@@ -1,7 +1,9 @@
 import 'dotenv/config';
 import { createApp } from './app';
+import { parseAuthConfig } from './config/auth';
 import { parseDatabaseConfig } from './config/database';
-import { closePool } from './shared/db/pool';
+import { createAuthRuntime } from './shared/auth/runtime';
+import { closePool, getPool } from './shared/db/pool';
 
 function readPort(): number {
   const port = Number(process.env.PORT ?? 3000);
@@ -13,8 +15,9 @@ function readPort(): number {
 
 function main(): void {
   parseDatabaseConfig();
+  const auth = createAuthRuntime({ config: parseAuthConfig(), pool: getPool() });
   const port = readPort();
-  const app = createApp();
+  const app = createApp({ auth });
   const server = app.listen(port, () => {
     console.log(`后端已启动：http://localhost:${port}`);
   });
