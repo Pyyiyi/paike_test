@@ -8,6 +8,7 @@ describe('GET /api/v1/health', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: { status: 'ok', db: true } });
+    expect(response.headers['x-request-id']).toEqual(expect.any(String));
   });
 
   it('returns a clear 503 when the database is unavailable', async () => {
@@ -18,6 +19,8 @@ describe('GET /api/v1/health', () => {
       error: {
         code: 'DATABASE_UNAVAILABLE',
         message: '数据库暂时不可用，请稍后重试',
+        details: [],
+        requestId: expect.any(String),
       },
     });
   });
