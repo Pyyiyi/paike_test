@@ -1,8 +1,9 @@
 import { createRouter, createWebHistory, type RouteRecordRaw, type RouterHistory } from 'vue-router';
 import { useSessionStore } from '@/shared/stores/session';
+import { collectDomainRoutes, type DomainRouteModule } from './route-registry';
 
-const modules = import.meta.glob<{ routes: RouteRecordRaw[] }>('../views/*/routes.ts', { eager: true });
-const domainRoutes = Object.values(modules).flatMap((module) => module.routes);
+const modules = import.meta.glob<DomainRouteModule>('../views/*/routes.ts', { eager: true });
+export const domainRoutes = collectDomainRoutes(modules);
 
 export const routes: RouteRecordRaw[] = [
   {

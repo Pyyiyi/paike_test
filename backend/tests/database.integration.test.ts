@@ -405,7 +405,7 @@ describeWithDatabase('shared database and migrations', () => {
 
     try {
       const response = await request(
-        createApp({
+        await createApp({
           probe: async () => {
             try {
               await limitedPool.query('SELECT 1');
