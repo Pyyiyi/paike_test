@@ -72,7 +72,7 @@
 
 ### 2.6 运行时装配
 
-- `@/shared/auth/runtime`：`createAuthRuntime({ config, pool, now? })`，返回 `{ config, pool, now, lockout, writeAudit }`；`createApp({ auth })` 仅在注入该运行时后挂载认证栈。
+- `@/shared/auth/runtime`：`createAuthRuntime({ config, pool, now? })`，返回 `{ config, pool, now, lockout, writeAudit }`；`await createApp({ auth })` 仅在注入该运行时后由 Hub 挂载认证模块。
 
 ## 3. 安全审计用例说明
 

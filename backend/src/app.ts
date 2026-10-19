@@ -1,6 +1,6 @@
 import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
-import { createAuthRouter } from './modules/auth/auth.router';
+import { registerModuleRouters } from './modules';
 import { createCsrfMiddleware } from './shared/auth/csrf';
 import { createForcedPasswordChangeGuard, createLoadCurrentUser } from './shared/auth/rbac';
 import type { AuthRuntime } from './shared/auth/runtime';
@@ -12,9 +12,10 @@ import { requestIdMiddleware } from './shared/http/request-id';
 
 export interface AppOptions extends HealthRouterOptions {
   auth?: AuthRuntime;
+  routerLogger?: Pick<Console, 'info'>;
 }
 
-export function createApp(options: AppOptions = {}): Express {
+export async function createApp(options: AppOptions = {}): Promise<Express> {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);
@@ -31,10 +32,13 @@ export function createApp(options: AppOptions = {}): Express {
     app.use(createCsrfMiddleware());
     app.use(createLoadCurrentUser(options.auth));
     app.use(createForcedPasswordChangeGuard());
-    app.use('/api/v1/auth', createAuthRouter(options.auth));
   }
 
   app.use('/api/v1', createHealthRouter({ probe: options.probe }));
+  await registerModuleRouters(app, {
+    context: { auth: options.auth },
+    logger: options.routerLogger,
+  });
 
   app.use(notFoundHandler);
   app.use(errorHandler);

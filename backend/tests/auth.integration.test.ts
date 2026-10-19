@@ -21,7 +21,7 @@ let schema = '';
 let passwordHash = '';
 let runtime: AuthRuntime;
 let nowMs = Date.now();
-let app: ReturnType<typeof createApp>;
+let app: Awaited<ReturnType<typeof createApp>>;
 let userCounter = 0;
 
 function makeConfig(): AuthConfig {
@@ -121,7 +121,7 @@ beforeAll(async () => {
   passwordHash = await hashPassword(GOOD_PASSWORD, ARGON2);
   nowMs = Date.now();
   runtime = createAuthRuntime({ config: makeConfig(), pool, now: () => nowMs });
-  app = createApp({ auth: runtime });
+  app = await createApp({ auth: runtime });
 });
 
 afterAll(async () => {
@@ -142,7 +142,7 @@ beforeEach(async () => {
   nowMs = Date.now();
   await pool.query('DELETE FROM sys_login_attempt');
   await pool.query('UPDATE sys_session SET revoked_at = now() WHERE revoked_at IS NULL');
-  app = createApp({ auth: runtime });
+  app = await createApp({ auth: runtime });
 });
 
 describeWithDatabase('auth and session security', () => {

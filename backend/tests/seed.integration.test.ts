@@ -498,7 +498,7 @@ describeWithDatabase('seed anchors and administrator', () => {
 
     try {
       await seed(pool, initialPassword);
-      const app = createApp({
+      const app = await createApp({
         auth: createAuthRuntime({ config: makeAuthConfig(), pool }),
       });
       const agent = request.agent(app);

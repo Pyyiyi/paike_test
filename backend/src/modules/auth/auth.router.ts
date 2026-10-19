@@ -5,6 +5,7 @@ import { normalizeIp } from '../../shared/auth/ip';
 import { hashPassword, validatePasswordPolicy, verifyPassword } from '../../shared/auth/password';
 import { requireAuth, type CurrentUser } from '../../shared/auth/rbac';
 import type { AuthRuntime } from '../../shared/auth/runtime';
+import type { ModuleRouterContext } from '../router-contract';
 import { createSession, destroySession } from '../../shared/auth/session';
 import { createAppError } from '../../shared/errors/app-error';
 import { asyncHandler } from '../../shared/http/async-handler';
@@ -43,6 +44,15 @@ function toUserDto(user: CurrentUser) {
     teacherId: user.teacherId,
     mustChangePassword: user.mustChangePassword,
   };
+}
+
+export function createRouter(context: ModuleRouterContext): Router | null {
+  if (!context.auth) {
+    return null;
+  }
+  const router = Router();
+  router.use('/auth', createAuthRouter(context.auth));
+  return router;
 }
 
 export function createAuthRouter(runtime: AuthRuntime): Router {
