@@ -1,0 +1,7663 @@
+openapi: 3.1.0
+info:
+  title: 智能排课系统 V1.0 API
+  version: 1.0.0
+  description: 契约冻结版本。所有 Phase 0-3 API 的唯一实现依据；偏离必须先更新契约。
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  x-contract-version: 1.0.0
+  x-api-base-path: /api/v1
+servers:
+- url: /api/v1
+  description: 版本化 API 基础路径
+tags:
+- name: Health
+  description: 健康检查
+- name: Auth
+  description: 认证、会话与改密
+- name: Registry
+  description: 学期、作息、年级班级、科目
+- name: Resource
+  description: 教师任课、场地、合班走班
+- name: Timetable
+  description: 排课方案、调课、五视图、空闲时段
+- name: Statistics
+  description: 工作量统计
+- name: Governance
+  description: 操作日志、学期存档与切换
+- name: Identity
+  description: 用户、角色与账号生命周期
+- name: Exchange
+  description: 批量导入与 Excel 导出
+- name: Print
+  description: 打印模板与 PDF 渲染
+security:
+- cookieAuth: []
+paths:
+  /health:
+    get:
+      tags:
+      - Health
+      summary: 健康检查
+      operationId: getHealth
+      x-phase: P0
+      x-required-roles:
+      - ADMIN
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /auth/csrf:
+    get:
+      tags:
+      - Auth
+      summary: 获取 CSRF Token
+      operationId: getCsrfToken
+      x-phase: P0
+      x-required-roles:
+      - ADMIN
+      - TEACHER
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /auth/login:
+    post:
+      tags:
+      - Auth
+      summary: 登录
+      operationId: login
+      x-phase: P0
+      x-required-roles:
+      - ADMIN
+      - TEACHER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      x-csrf-required: true
+      security:
+      - csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '423':
+          $ref: '#/components/responses/AccountLocked'
+  /auth/logout:
+    post:
+      tags:
+      - Auth
+      summary: 退出登录
+      operationId: logout
+      x-phase: P0
+      x-required-roles:
+      - ADMIN
+      - TEACHER
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResultEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /auth/me:
+    get:
+      tags:
+      - Auth
+      summary: 获取当前用户与角色
+      operationId: getCurrentUser
+      x-phase: P0
+      x-required-roles:
+      - ADMIN
+      - TEACHER
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /auth/change-password:
+    post:
+      tags:
+      - Auth
+      summary: 修改密码
+      operationId: changePassword
+      x-phase: P0
+      x-required-roles:
+      - ADMIN
+      - TEACHER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResultEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters:
+    get:
+      tags:
+      - Registry
+      summary: 学期列表
+      operationId: listSemesters
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: includeArchived
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: boolean
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemesterListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 新增学期
+      operationId: createSemester
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SemesterCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemesterEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters/current:
+    get:
+      tags:
+      - Registry
+      summary: 当前学期
+      operationId: getCurrentSemester
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemesterEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters/{id}:
+    patch:
+      tags:
+      - Registry
+      summary: 编辑学期
+      operationId: updateSemester
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SemesterUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemesterEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Registry
+      summary: 逻辑删除学期
+      operationId: deleteSemester
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters/{id}/calendar-exceptions:
+    get:
+      tags:
+      - Registry
+      summary: 校历列表
+      operationId: listCalendarExceptions
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarExceptionListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 新增停课/调休
+      operationId: createCalendarException
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalendarExceptionCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarExceptionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters/{id}/calendar-exceptions/{exceptionId}:
+    delete:
+      tags:
+      - Registry
+      summary: 删除校历项
+      operationId: deleteCalendarException
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: exceptionId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /schedule-templates:
+    get:
+      tags:
+      - Registry
+      summary: 作息模板列表
+      operationId: listScheduleTemplates
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplateListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 新建作息模板 v1
+      operationId: createScheduleTemplate
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleTemplateCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplateEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /schedule-templates/{id}:
+    delete:
+      tags:
+      - Registry
+      summary: 逻辑删除作息模板
+      operationId: deleteScheduleTemplate
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /schedule-templates/{id}/versions:
+    get:
+      tags:
+      - Registry
+      summary: 模板版本列表
+      operationId: listScheduleTemplateVersions
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplateVersionListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 保存新模板版本
+      operationId: createScheduleTemplateVersion
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleTemplateVersionCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplateVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /schedule-templates/versions/{versionId}:
+    get:
+      tags:
+      - Registry
+      summary: 模板版本详情
+      operationId: getScheduleTemplateVersion
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: versionId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplateVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /schedule-templates/versions/{versionId}/validate:
+    post:
+      tags:
+      - Registry
+      summary: 校验节次规则
+      operationId: validateScheduleTemplateVersion
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: versionId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateValidationEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /grades:
+    get:
+      tags:
+      - Registry
+      summary: 年级列表
+      operationId: listGrades
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 新增年级
+      operationId: createGrade
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /grades/{id}:
+    patch:
+      tags:
+      - Registry
+      summary: 年级重命名
+      operationId: updateGrade
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Registry
+      summary: 删除年级
+      operationId: deleteGrade
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /classes:
+    get:
+      tags:
+      - Registry
+      summary: 班级列表
+      operationId: listClasses
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: gradeId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 新增班级
+      operationId: createClass
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /classes/{id}:
+    patch:
+      tags:
+      - Registry
+      summary: 编辑班级
+      operationId: updateClass
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Registry
+      summary: 删除班级
+      operationId: deleteClass
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /subjects:
+    get:
+      tags:
+      - Registry
+      summary: 科目列表（含课时规则）
+      operationId: listSubjects
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Registry
+      summary: 新增科目
+      operationId: createSubject
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubjectCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /subjects/{id}:
+    patch:
+      tags:
+      - Registry
+      summary: 科目重命名
+      operationId: updateSubject
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubjectUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /subjects/{id}/period-rule:
+    put:
+      tags:
+      - Registry
+      summary: 保存科目课时规则
+      operationId: putSubjectPeriodRule
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubjectPeriodRulePutRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectPeriodRuleEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /controlled-vocabularies:
+    get:
+      tags:
+      - Registry
+      summary: 受控词表查询
+      operationId: listControlledVocabularies
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: type
+        in: query
+        required: true
+        description: SUBJECT / GRADE / VENUE
+        schema:
+          type: string
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlledVocabularyListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers:
+    get:
+      tags:
+      - Resource
+      summary: 教师列表
+      operationId: listTeachers
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Resource
+      summary: 新增教师（可选一键开通账号）
+      operationId: createTeacher
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/{id}:
+    patch:
+      tags:
+      - Resource
+      summary: 编辑教师（工号不可改）
+      operationId: updateTeacher
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Resource
+      summary: 删除教师（引用保护）
+      operationId: deleteTeacher
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/{id}/deactivate:
+    post:
+      tags:
+      - Resource
+      summary: 教师退校
+      operationId: deactivateTeacher
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherDeactivateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/{id}/assignments:
+    get:
+      tags:
+      - Resource
+      summary: 教师任课列表
+      operationId: listTeacherAssignments
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachingAssignmentListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teaching-assignments:
+    post:
+      tags:
+      - Resource
+      summary: 新增任课
+      operationId: createTeachingAssignment
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeachingAssignmentCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachingAssignmentEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teaching-assignments/{id}:
+    patch:
+      tags:
+      - Resource
+      summary: 编辑任课
+      operationId: updateTeachingAssignment
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeachingAssignmentUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachingAssignmentEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Resource
+      summary: 删除任课
+      operationId: deleteTeachingAssignment
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /venues:
+    get:
+      tags:
+      - Resource
+      summary: 场地列表
+      operationId: listVenues
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Resource
+      summary: 新增场地
+      operationId: createVenue
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /venues/{id}:
+    patch:
+      tags:
+      - Resource
+      summary: 编辑场地
+      operationId: updateVenue
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Resource
+      summary: 删除场地
+      operationId: deleteVenue
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /combined-classes:
+    get:
+      tags:
+      - Resource
+      summary: 合班课列表
+      operationId: listCombinedClasses
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombinedClassListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Resource
+      summary: 新增合班课
+      operationId: createCombinedClass
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CombinedClassCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombinedClassEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /combined-classes/{id}:
+    patch:
+      tags:
+      - Resource
+      summary: 编辑合班课
+      operationId: updateCombinedClass
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CombinedClassUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombinedClassEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Resource
+      summary: 删除合班课
+      operationId: deleteCombinedClass
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /walking-groups:
+    get:
+      tags:
+      - Resource
+      summary: 走班配置列表
+      operationId: listWalkingGroups
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalkingGroupListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Resource
+      summary: 新增走班配置
+      operationId: createWalkingGroup
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalkingGroupCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalkingGroupEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /walking-groups/{id}:
+    patch:
+      tags:
+      - Resource
+      summary: 编辑走班配置
+      operationId: updateWalkingGroup
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalkingGroupUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalkingGroupEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Resource
+      summary: 删除走班配置
+      operationId: deleteWalkingGroup
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans:
+    get:
+      tags:
+      - Timetable
+      summary: 方案列表
+      operationId: listTimetablePlans
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Timetable
+      summary: 新建空草稿方案
+      operationId: createTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimetablePlanCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}:
+    get:
+      tags:
+      - Timetable
+      summary: 方案详情
+      operationId: getTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+    patch:
+      tags:
+      - Timetable
+      summary: 方案重命名
+      operationId: renameTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimetablePlanUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Timetable
+      summary: 删除草稿方案
+      operationId: deleteTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/generate:
+    post:
+      tags:
+      - Timetable
+      summary: 生成或重新生成方案
+      operationId: generateTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePlanRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/save-as:
+    post:
+      tags:
+      - Timetable
+      summary: 另存为新草稿
+      operationId: saveAsTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAsPlanRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/publish:
+    post:
+      tags:
+      - Timetable
+      summary: 发布正式课表
+      operationId: publishTimetablePlan
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishPlanRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetablePlanEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/conflicts:
+    get:
+      tags:
+      - Timetable
+      summary: 冲突明细
+      operationId: listPlanConflicts
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictDetailListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/unscheduled:
+    get:
+      tags:
+      - Timetable
+      summary: 未排课时清单
+      operationId: listPlanUnscheduledLessons
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnscheduledLessonListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/conflicts/{conflictId}/ignore-once:
+    post:
+      tags:
+      - Timetable
+      summary: 只本次忽略冲突
+      operationId: ignoreConflictOnce
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: conflictId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConflictIgnoreRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictDetailEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/conflicts/{conflictId}/resolve-config:
+    post:
+      tags:
+      - Timetable
+      summary: 记录去修改配置并返回跳转
+      operationId: resolveConflictByConfig
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: conflictId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConflictResolveRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveConfigEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/moves/validate:
+    post:
+      tags:
+      - Timetable
+      summary: 只校验批量调课
+      operationId: validateLessonMoves
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveBatchRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoveValidationEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/adjustments:
+    post:
+      tags:
+      - Timetable
+      summary: 批量保存调课（一个撤销单元）
+      operationId: saveLessonAdjustments
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentBatchRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentResultEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/adjustments/undo:
+    post:
+      tags:
+      - Timetable
+      summary: 撤销一个调课单元
+      operationId: undoLessonAdjustments
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentUndoRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentResultEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/adjustments/redo:
+    post:
+      tags:
+      - Timetable
+      summary: 重做一个调课单元
+      operationId: redoLessonAdjustments
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentUndoRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentResultEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/lessons/{lessonId}/lock:
+    post:
+      tags:
+      - Timetable
+      summary: 锁定课次
+      operationId: lockLesson
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: lessonId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/lessons/{lessonId}/unlock:
+    post:
+      tags:
+      - Timetable
+      summary: 解锁课次
+      operationId: unlockLesson
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: lessonId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/lessons:
+    post:
+      tags:
+      - Timetable
+      summary: 预排课次
+      operationId: createPreScheduledLesson
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetable-plans/{planId}/lessons/{lessonId}:
+    delete:
+      tags:
+      - Timetable
+      summary: 删除预排课次
+      operationId: deletePreScheduledLesson
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: planId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: lessonId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /timetables:
+    get:
+      tags:
+      - Timetable
+      summary: 五视图统一查询
+      operationId: getTimetable
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: dimension
+        in: query
+        required: true
+        description: ''
+        schema:
+          $ref: '#/components/schemas/TimetableDimension'
+      - name: objectId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: parity
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/WeekParity'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /my/timetable:
+    get:
+      tags:
+      - Timetable
+      summary: 教师本人课表
+      operationId: getMyTimetable
+      x-phase: P2
+      x-required-roles:
+      - TEACHER
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: parity
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/WeekParity'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /my/classes:
+    get:
+      tags:
+      - Timetable
+      summary: 教师关联班级（任课 ∪ 班主任）
+      operationId: listMyClasses
+      x-phase: P2
+      x-required-roles:
+      - TEACHER
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /my/classes/{classId}/timetable:
+    get:
+      tags:
+      - Timetable
+      summary: 教师关联班级课表
+      operationId: getMyClassTimetable
+      x-phase: P2
+      x-required-roles:
+      - TEACHER
+      parameters:
+      - name: classId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: parity
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/WeekParity'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /idle-slots:
+    get:
+      tags:
+      - Timetable
+      summary: 任意对象空闲时段
+      operationId: getIdleSlots
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: dimension
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          enum:
+          - TEACHER
+          - CLASS
+      - name: objectId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: parity
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/WeekParity'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdleSlotsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /my/idle-slots:
+    get:
+      tags:
+      - Timetable
+      summary: 教师本人空闲时段
+      operationId: getMyIdleSlots
+      x-phase: P2
+      x-required-roles:
+      - TEACHER
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: parity
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/WeekParity'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdleSlotsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /statistics/workload:
+    get:
+      tags:
+      - Statistics
+      summary: 教师工作量统计
+      operationId: getWorkloadStatistics
+      x-phase: P2
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: scope
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          enum:
+          - SEMESTER
+          - WEEK
+      - name: weekIndex
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: integer
+          minimum: 1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkloadListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /operation-logs:
+    get:
+      tags:
+      - Governance
+      summary: 操作日志查询（时间倒序）
+      operationId: listOperationLogs
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: operatorId
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+          format: date-time
+      - name: module
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/OperationModule'
+      - name: page
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: integer
+          minimum: 1
+      - name: pageSize
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationLogListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /operation-logs/{logId}:
+    get:
+      tags:
+      - Governance
+      summary: 操作日志详情
+      operationId: getOperationLog
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: logId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationLogEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters/{id}/archive:
+    post:
+      tags:
+      - Governance
+      summary: 学期存档
+      operationId: archiveSemester
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchiveActionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    get:
+      tags:
+      - Governance
+      summary: 学期存档信息
+      operationId: getSemesterArchive
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchiveActionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /semesters/{id}/switch:
+    post:
+      tags:
+      - Governance
+      summary: 切换当前学期（含草稿守卫）
+      operationId: switchSemester
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchSemesterRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemesterEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /archive-status:
+    get:
+      tags:
+      - Governance
+      summary: 存档前置检查
+      operationId: getArchiveStatus
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: semesterId
+        in: query
+        required: true
+        description: ''
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchiveStatusEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /users:
+    get:
+      tags:
+      - Identity
+      summary: 用户列表
+      operationId: listUsers
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: role
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/Role'
+      - name: status
+        in: query
+        required: false
+        description: ''
+        schema:
+          $ref: '#/components/schemas/AccountStatus'
+      - name: keyword
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: ''
+        schema:
+          type: integer
+          minimum: 1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Identity
+      summary: 新建用户
+      operationId: createUser
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /users/{userId}:
+    get:
+      tags:
+      - Identity
+      summary: 用户详情
+      operationId: getUser
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+    patch:
+      tags:
+      - Identity
+      summary: 编辑用户姓名
+      operationId: updateUser
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /users/{userId}/role:
+    patch:
+      tags:
+      - Identity
+      summary: 分配用户角色
+      operationId: updateUserRole
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /users/{userId}/disable:
+    post:
+      tags:
+      - Identity
+      summary: 停用账号并撤销会话
+      operationId: disableUser
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /users/{userId}/enable:
+    post:
+      tags:
+      - Identity
+      summary: 启用账号
+      operationId: enableUser
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /users/{userId}/reset-password:
+    post:
+      tags:
+      - Identity
+      summary: 重置为随机密码
+      operationId: resetUserPassword
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/{teacherId}/provision-account:
+    post:
+      tags:
+      - Identity
+      summary: 一键开通 Teacher 账号
+      operationId: provisionTeacherAccount
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: teacherId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisioningResultEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/provision-accounts/batch:
+    post:
+      tags:
+      - Identity
+      summary: 批量开通账号并返回一次性凭据 CSV
+      operationId: batchProvisionTeacherAccounts
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 一次性凭据 CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /import/templates/{module}:
+    get:
+      tags:
+      - Exchange
+      summary: 下载固定导入模板
+      operationId: downloadImportTemplate
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: module
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          $ref: '#/components/schemas/ImportModule'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/XlsxFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /import/{module}/preview:
+    post:
+      tags:
+      - Exchange
+      summary: 解析并返回前 20 行与表头校验
+      operationId: previewImport
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: module
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          $ref: '#/components/schemas/ImportModule'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportPreviewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /import/{module}:
+    post:
+      tags:
+      - Exchange
+      summary: 上传并执行导入（≤20 MB / ≤5000 行）
+      operationId: executeImport
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: module
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          $ref: '#/components/schemas/ImportModule'
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '422':
+          $ref: '#/components/responses/ImportRowError'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /import/batches/{batchId}:
+    get:
+      tags:
+      - Exchange
+      summary: 导入批次结果
+      operationId: getImportBatch
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: batchId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /import/batches/{batchId}/errors:
+    get:
+      tags:
+      - Exchange
+      summary: 一次性下载导入错误 CSV
+      operationId: downloadImportErrors
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: batchId
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/CsvFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /exports/options:
+    get:
+      tags:
+      - Exchange
+      summary: 导出可用维度、学期与列字典
+      operationId: getExportOptions
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportOptionsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /exports/columns:
+    get:
+      tags:
+      - Exchange
+      summary: 按维度读取列名与顺序
+      operationId: getExportColumns
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: dimension
+        in: query
+        required: true
+        description: ''
+        schema:
+          $ref: '#/components/schemas/ExportDimension'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ColumnDictionaryEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /exports:
+    post:
+      tags:
+      - Exchange
+      summary: 生成并返回 XLSX
+      operationId: createExport
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          $ref: '#/components/responses/XlsxFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print-templates:
+    get:
+      tags:
+      - Print
+      summary: 打印模板列表
+      operationId: listPrintTemplates
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrintTemplateListEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      tags:
+      - Print
+      summary: 新建打印模板
+      operationId: createPrintTemplate
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrintTemplateCreateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrintTemplateEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print-templates/{id}:
+    patch:
+      tags:
+      - Print
+      summary: 编辑打印模板
+      operationId: updatePrintTemplate
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrintTemplateUpdateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrintTemplateEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      tags:
+      - Print
+      summary: 逻辑删除打印模板
+      operationId: deletePrintTemplate
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print-templates/{id}/logo:
+    post:
+      tags:
+      - Print
+      summary: 上传 PNG 校徽（≤2 MB）
+      operationId: uploadPrintTemplateLogo
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrintTemplateEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print/preview:
+    post:
+      tags:
+      - Print
+      summary: 预览 PDF（与渲染同一份）
+      operationId: previewPrint
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrintRenderRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PdfFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print/render:
+    post:
+      tags:
+      - Print
+      summary: 渲染并下载/打印 PDF
+      operationId: renderPrint
+      x-phase: P3
+      x-required-roles:
+      - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrintRenderRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PdfFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: paike.sid
+      description: 服务端会话 Cookie；HttpOnly、SameSite=Lax、生产 Secure
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: CSRF 双提交 Token；所有非 GET 请求必填
+  schemas:
+    Role:
+      type: string
+      enum:
+      - ADMIN
+      - TEACHER
+      x-enum-name: Role
+    AccountStatus:
+      type: string
+      enum:
+      - ENABLED
+      - DISABLED
+      x-enum-name: AccountStatus
+    Gender:
+      type: string
+      enum:
+      - MALE
+      - FEMALE
+      - UNSPECIFIED
+      x-enum-name: Gender
+    SemesterStatus:
+      type: string
+      enum:
+      - NOT_STARTED
+      - IN_PROGRESS
+      - ENDED
+      - ARCHIVED
+      x-enum-name: SemesterStatus
+    Term:
+      type: string
+      enum:
+      - FALL
+      - SPRING
+      x-enum-name: Term
+    TemplateStatus:
+      type: string
+      enum:
+      - ACTIVE
+      - RETIRED
+      x-enum-name: TemplateStatus
+    CalendarExceptionType:
+      type: string
+      enum:
+      - STOP
+      - MAKEUP
+      x-enum-name: CalendarExceptionType
+    TeacherStatus:
+      type: string
+      enum:
+      - ACTIVE
+      - LEFT
+      x-enum-name: TeacherStatus
+    VenueType:
+      type: string
+      enum:
+      - CLASSROOM
+      - FUNCTION_ROOM
+      x-enum-name: VenueType
+    VenueStatus:
+      type: string
+      enum:
+      - AVAILABLE
+      - UNAVAILABLE
+      x-enum-name: VenueStatus
+    ConsecutivePreference:
+      type: string
+      enum:
+      - NONE
+      - PREFERRED
+      - REQUIRED
+      x-enum-name: ConsecutivePreference
+    TimeSlotPreference:
+      type: string
+      enum:
+      - NONE
+      - MORNING
+      - AFTERNOON
+      x-enum-name: TimeSlotPreference
+    PlanStatus:
+      type: string
+      enum:
+      - DRAFT
+      - PUBLISHED
+      - SUPERSEDED
+      - ARCHIVED
+      x-enum-name: PlanStatus
+    WeekParity:
+      type: string
+      enum:
+      - ALL
+      - ODD
+      - EVEN
+      x-enum-name: WeekParity
+    SchedulingUnitType:
+      type: string
+      enum:
+      - ASSIGNMENT
+      - COMBINED_CLASS
+      - WALKING_GROUP
+      x-enum-name: SchedulingUnitType
+    ConflictType:
+      type: string
+      enum:
+      - TEACHER_OVERLAP
+      - CLASS_OVERLAP
+      - VENUE_OVERLAP
+      - CAPACITY_EXCEEDED
+      - LOCKED_VIOLATION
+      - RULE_VIOLATION
+      x-enum-name: ConflictType
+    ConflictResolution:
+      type: string
+      enum:
+      - UNRESOLVED
+      - IGNORED_ONCE
+      - CONFIG_CHANGED
+      - RESOLVED
+      x-enum-name: ConflictResolution
+    UnscheduledReason:
+      type: string
+      enum:
+      - NO_FEASIBLE_SLOT
+      - TEACHER_EXHAUSTED
+      - CLASS_EXHAUSTED
+      - VENUE_EXHAUSTED
+      - CAPACITY
+      - LOCK_CONFLICT
+      - TIME_LIMIT
+      x-enum-name: UnscheduledReason
+    AdjustmentAction:
+      type: string
+      enum:
+      - APPLY
+      - UNDO
+      - REDO
+      x-enum-name: AdjustmentAction
+    ImportModule:
+      type: string
+      enum:
+      - SEMESTERS
+      - GRADES
+      - CLASSES
+      - SUBJECTS
+      - TEACHERS
+      - ASSIGNMENTS
+      - VENUES
+      x-enum-name: ImportModule
+    ImportBatchStatus:
+      type: string
+      enum:
+      - COMPLETED
+      - PARTIAL
+      - FAILED
+      x-enum-name: ImportBatchStatus
+    ExportDimension:
+      type: string
+      enum:
+      - MASTER_DATA
+      - TIMETABLE
+      - STATISTICS
+      x-enum-name: ExportDimension
+    TimetableDimension:
+      type: string
+      enum:
+      - CLASS
+      - TEACHER
+      - SCHOOL
+      - VENUE
+      - ASSIGNMENT
+      x-enum-name: TimetableDimension
+    OperationModule:
+      type: string
+      enum:
+      - DELETE
+      - PUBLISH
+      - OVERWRITE
+      - SWITCH_SEMESTER
+      - IMPORT
+      - ARCHIVE
+      - ADJUST
+      x-enum-name: OperationModule
+    PrintPaperSize:
+      type: string
+      enum:
+      - A4
+      - A3
+      x-enum-name: PrintPaperSize
+    PrintOrientation:
+      type: string
+      enum:
+      - PORTRAIT
+      - LANDSCAPE
+      x-enum-name: PrintOrientation
+    HealthStatus:
+      type: string
+      enum:
+      - ok
+      x-enum-name: HealthStatus
+    ErrorCode:
+      type: string
+      enum:
+      - VALIDATION_ERROR
+      - UNAUTHENTICATED
+      - FORBIDDEN
+      - NOT_FOUND
+      - VERSION_CONFLICT
+      - DUPLICATE
+      - REFERENCE_PROTECTED
+      - STATE_CONFLICT
+      - DRAFT_EXISTS
+      - FILE_TOO_LARGE
+      - IMPORT_ROW_ERROR
+      - ACCOUNT_LOCKED
+      - INTERNAL_ERROR
+      - DATABASE_UNAVAILABLE
+      x-enum-name: ErrorCode
+    Period:
+      type: object
+      properties:
+        periodNo:
+          type: integer
+          minimum: 1
+        startTime:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+        endTime:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+      required:
+      - periodNo
+      - startTime
+      - endTime
+    Slot:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+        period:
+          type: integer
+          minimum: 1
+      required:
+      - weekday
+      - period
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type:
+          - string
+          - 'null'
+        message:
+          type: string
+        rowNo:
+          type:
+          - integer
+          - 'null'
+        column:
+          type:
+          - string
+          - 'null'
+        rawValue:
+          type:
+          - string
+          - 'null'
+      required:
+      - message
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+            requestId:
+              type: string
+          required:
+          - code
+          - message
+          - details
+          - requestId
+      required:
+      - error
+    ActionResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+      - ok
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        teacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        mustChangePassword:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+      required:
+      - userId
+      - username
+      - displayName
+      - role
+      - teacherId
+      - mustChangePassword
+    CsrfData:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+      - token
+    HealthData:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthStatus'
+        db:
+          type: boolean
+      required:
+      - status
+      - db
+    Semester:
+      type: object
+      properties:
+        semesterId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        academicYear:
+          type: string
+        term:
+          $ref: '#/components/schemas/Term'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/SemesterStatus'
+        scheduleTemplateVersionId:
+          type: string
+          format: uuid
+        isCurrent:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - semesterId
+      - name
+      - academicYear
+      - term
+      - startDate
+      - endDate
+      - status
+      - scheduleTemplateVersionId
+      - isCurrent
+      - version
+    CalendarException:
+      type: object
+      properties:
+        exceptionId:
+          type: string
+          format: uuid
+        semesterId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/CalendarExceptionType'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        makeupWeekday:
+          type:
+          - integer
+          - 'null'
+        note:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - exceptionId
+      - semesterId
+      - type
+      - startDate
+      - endDate
+      - version
+    ScheduleTemplate:
+      type: object
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/TemplateStatus'
+        latestVersionNo:
+          type: integer
+          minimum: 1
+        latestVersion:
+          $ref: '#/components/schemas/ScheduleTemplateVersion'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - templateId
+      - name
+      - status
+      - latestVersionNo
+      - version
+    ScheduleTemplateVersion:
+      type: object
+      properties:
+        versionId:
+          type: string
+          format: uuid
+        templateId:
+          type: string
+          format: uuid
+        versionNo:
+          type: integer
+          minimum: 1
+        openWeekdays:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          minItems: 1
+        status:
+          $ref: '#/components/schemas/TemplateStatus'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - versionId
+      - templateId
+      - versionNo
+      - openWeekdays
+      - periods
+      - status
+    Grade:
+      type: object
+      properties:
+        gradeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        classCount:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - gradeId
+      - name
+      - sortOrder
+      - version
+    Class:
+      type: object
+      properties:
+        classId:
+          type: string
+          format: uuid
+        gradeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        serialNo:
+          type: integer
+          minimum: 1
+          maximum: 99
+        headTeacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        studentCount:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - classId
+      - gradeId
+      - name
+      - serialNo
+      - studentCount
+      - version
+    Subject:
+      type: object
+      properties:
+        subjectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        periodRule:
+          $ref: '#/components/schemas/SubjectPeriodRule'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - subjectId
+      - name
+      - version
+    SubjectPeriodRule:
+      type: object
+      properties:
+        ruleId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        weeklyPeriods:
+          type: integer
+          minimum: 0
+        consecutivePreference:
+          $ref: '#/components/schemas/ConsecutivePreference'
+        forbiddenSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        timeSlotPreference:
+          $ref: '#/components/schemas/TimeSlotPreference'
+        periodBalanceEnabled:
+          type: boolean
+        amPmBalanceEnabled:
+          type: boolean
+        fixedSlotRuleEnabled:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - ruleId
+      - subjectId
+      - weeklyPeriods
+      - consecutivePreference
+      - forbiddenSlots
+      - timeSlotPreference
+      - periodBalanceEnabled
+      - amPmBalanceEnabled
+      - fixedSlotRuleEnabled
+      - version
+    Teacher:
+      type: object
+      properties:
+        teacherId:
+          type: string
+          format: uuid
+        employeeNo:
+          type: string
+        name:
+          type: string
+        gender:
+          $ref: '#/components/schemas/Gender'
+        phone:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/TeacherStatus'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - teacherId
+      - employeeNo
+      - name
+      - gender
+      - status
+      - version
+    TeachingAssignment:
+      type: object
+      properties:
+        assignmentId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        weeklyPeriods:
+          type: integer
+          minimum: 0
+        consecutivePreference:
+          $ref: '#/components/schemas/ConsecutivePreference'
+        forbiddenSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        exemptedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - assignmentId
+      - teacherId
+      - subjectId
+      - classId
+      - weeklyPeriods
+      - consecutivePreference
+      - forbiddenSlots
+      - exemptedSlots
+      - version
+    Venue:
+      type: object
+      properties:
+        venueId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/VenueType'
+        capacity:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/VenueStatus'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - venueId
+      - name
+      - type
+      - capacity
+      - status
+      - version
+    CombinedClass:
+      type: object
+      properties:
+        combinedClassId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        periodConstraint:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - combinedClassId
+      - name
+      - teacherId
+      - classIds
+      - periodConstraint
+      - version
+    WalkingGroup:
+      type: object
+      properties:
+        walkingGroupId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        subjectId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - walkingGroupId
+      - name
+      - subjectId
+      - teacherId
+      - venueId
+      - classIds
+      - version
+    TimetablePlan:
+      type: object
+      properties:
+        planId:
+          type: string
+          format: uuid
+        semesterId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        version:
+          type: integer
+          minimum: 0
+        scheduleTemplateVersionId:
+          type: string
+          format: uuid
+        conflictCount:
+          type: integer
+          minimum: 0
+        unscheduledCount:
+          type: integer
+          minimum: 0
+        durationMs:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        hasManualExemption:
+          type: boolean
+        generatedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        generatedBy:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - planId
+      - semesterId
+      - name
+      - status
+      - version
+      - scheduleTemplateVersionId
+      - conflictCount
+      - unscheduledCount
+      - hasManualExemption
+    Lesson:
+      type: object
+      properties:
+        lessonId:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        weekday:
+          type: integer
+          minimum: 1
+        period:
+          type: integer
+          minimum: 1
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
+        subjectId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        unitType:
+          $ref: '#/components/schemas/SchedulingUnitType'
+        unitId:
+          type: string
+          format: uuid
+        locked:
+          type: boolean
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - lessonId
+      - planId
+      - weekday
+      - period
+      - weekParity
+      - subjectId
+      - teacherId
+      - unitType
+      - unitId
+      - locked
+      - classIds
+    ConflictDetail:
+      type: object
+      properties:
+        conflictId:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        lessonId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        conflictType:
+          $ref: '#/components/schemas/ConflictType'
+        teacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        weekday:
+          type:
+          - integer
+          - 'null'
+        period:
+          type:
+          - integer
+          - 'null'
+        ruleId:
+          type:
+          - string
+          - 'null'
+        configRef:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+        suggestion:
+          type: string
+        resolution:
+          $ref: '#/components/schemas/ConflictResolution'
+      required:
+      - conflictId
+      - planId
+      - conflictType
+      - suggestion
+      - resolution
+    UnscheduledLesson:
+      type: object
+      properties:
+        unscheduledId:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        unitType:
+          $ref: '#/components/schemas/SchedulingUnitType'
+        unitId:
+          type: string
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        requiredPeriods:
+          type: integer
+          minimum: 0
+        unplacedPeriods:
+          type: integer
+          minimum: 0
+        reasonCode:
+          $ref: '#/components/schemas/UnscheduledReason'
+        reasonDetail:
+          type: string
+        suggestedActions:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              route:
+                type: string
+              configRef:
+                type:
+                - object
+                - 'null'
+                additionalProperties: true
+      required:
+      - unscheduledId
+      - planId
+      - unitType
+      - unitId
+      - classIds
+      - subjectId
+      - teacherId
+      - requiredPeriods
+      - unplacedPeriods
+      - reasonCode
+      - reasonDetail
+      - suggestedActions
+    TimetableCell:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+        period:
+          type: integer
+          minimum: 1
+        lessonId:
+          type: string
+          format: uuid
+        subjectName:
+          type: string
+        teacherName:
+          type: string
+        classNames:
+          type: array
+          items:
+            type: string
+        venueName:
+          type:
+          - string
+          - 'null'
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
+        locked:
+          type: boolean
+      required:
+      - weekday
+      - period
+      - lessonId
+      - subjectName
+      - teacherName
+      - classNames
+      - weekParity
+      - locked
+    Timetable:
+      type: object
+      properties:
+        semesterId:
+          type: string
+          format: uuid
+        dimension:
+          $ref: '#/components/schemas/TimetableDimension'
+        objectId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        parity:
+          $ref: '#/components/schemas/WeekParity'
+        weekdays:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimetableCell'
+      required:
+      - semesterId
+      - dimension
+      - parity
+      - weekdays
+      - periods
+      - cells
+    IdleSlot:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+        period:
+          type: integer
+          minimum: 1
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
+      required:
+      - weekday
+      - period
+      - weekParity
+    IdleSlots:
+      type: object
+      properties:
+        semesterId:
+          type: string
+          format: uuid
+        objectType:
+          type: string
+        objectId:
+          type: string
+          format: uuid
+        parity:
+          $ref: '#/components/schemas/WeekParity'
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdleSlot'
+      required:
+      - semesterId
+      - objectType
+      - objectId
+      - parity
+      - slots
+    WorkloadRow:
+      type: object
+      properties:
+        teacherId:
+          type: string
+          format: uuid
+        teacherName:
+          type: string
+        regular:
+          type: integer
+          minimum: 0
+        consecutive:
+          type: integer
+          minimum: 0
+        combined:
+          type: integer
+          minimum: 0
+        overtime:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - teacherId
+      - teacherName
+      - regular
+      - consecutive
+      - combined
+      - overtime
+      - total
+    OperationLog:
+      type: object
+      properties:
+        logId:
+          type: string
+          format: uuid
+        operatorId:
+          type: string
+          format: uuid
+        operatorName:
+          type: string
+        module:
+          $ref: '#/components/schemas/OperationModule'
+        action:
+          type: string
+        content:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        requestId:
+          type:
+          - string
+          - 'null'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - logId
+      - operatorId
+      - operatorName
+      - module
+      - action
+      - content
+      - targetType
+      - createdAt
+    SemesterArchive:
+      type: object
+      properties:
+        archiveId:
+          type: string
+          format: uuid
+        semesterId:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        archivedBy:
+          type: string
+          format: uuid
+        archivedAt:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          additionalProperties: true
+      required:
+      - archiveId
+      - semesterId
+      - planId
+      - archivedBy
+      - archivedAt
+      - summary
+    ArchiveStatus:
+      type: object
+      properties:
+        semesterId:
+          type: string
+          format: uuid
+        canArchive:
+          type: boolean
+        reason:
+          type:
+          - string
+          - 'null'
+        publishedPlanId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - semesterId
+      - canArchive
+    ImportError:
+      type: object
+      properties:
+        rowNo:
+          type: integer
+          minimum: 1
+        column:
+          type:
+          - string
+          - 'null'
+        rawValue:
+          type:
+          - string
+          - 'null'
+        message:
+          type: string
+      required:
+      - rowNo
+      - message
+    ImportBatch:
+      type: object
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        module:
+          $ref: '#/components/schemas/ImportModule'
+        filename:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+        success:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/ImportBatchStatus'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportError'
+        operatorId:
+          type: string
+          format: uuid
+        operatorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        errorReportUrl:
+          type:
+          - string
+          - 'null'
+      required:
+      - batchId
+      - module
+      - filename
+      - sizeBytes
+      - total
+      - success
+      - failed
+      - status
+      - errors
+      - operatorId
+      - operatorName
+      - createdAt
+    ImportPreview:
+      type: object
+      properties:
+        headers:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        headerErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportError'
+      required:
+      - headers
+      - rows
+      - headerErrors
+    PrintTemplate:
+      type: object
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        paperSize:
+          $ref: '#/components/schemas/PrintPaperSize'
+        orientation:
+          $ref: '#/components/schemas/PrintOrientation'
+        marginMm:
+          type: object
+          properties:
+            top:
+              type: integer
+            right:
+              type: integer
+            bottom:
+              type: integer
+            left:
+              type: integer
+          required:
+          - top
+          - right
+          - bottom
+          - left
+        title:
+          type:
+          - string
+          - 'null'
+        logoDataUri:
+          type:
+          - string
+          - 'null'
+        headerText:
+          type:
+          - string
+          - 'null'
+        footerText:
+          type:
+          - string
+          - 'null'
+        isPreset:
+          type: boolean
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - templateId
+      - name
+      - paperSize
+      - orientation
+      - marginMm
+      - isPreset
+      - version
+    ExportOptions:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportDimension'
+        semesters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Semester'
+        timetableDimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimetableDimension'
+      required:
+      - dimensions
+      - semesters
+      - timetableDimensions
+    ColumnDictionary:
+      type: object
+      properties:
+        dimension:
+          type: string
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              order:
+                type: integer
+                minimum: 1
+            required:
+            - key
+            - label
+            - order
+      required:
+      - dimension
+      - columns
+    MoveValidation:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConflictDetail'
+      required:
+      - valid
+      - conflicts
+    AdjustmentResult:
+      type: object
+      properties:
+        planId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 0
+        historyId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/AdjustmentAction'
+        conflictCount:
+          type: integer
+          minimum: 0
+      required:
+      - planId
+      - version
+      - historyId
+      - action
+      - conflictCount
+    TemplateValidation:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+      required:
+      - valid
+      - errors
+    ResolveConfigResult:
+      type: object
+      properties:
+        conflictId:
+          type: string
+          format: uuid
+        route:
+          type: string
+        configRef:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+      required:
+      - conflictId
+      - route
+    ProvisioningResult:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        temporaryPassword:
+          type:
+          - string
+          - 'null'
+        alreadyExists:
+          type: boolean
+      required:
+      - user
+      - temporaryPassword
+      - alreadyExists
+    ResetPasswordResult:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        temporaryPassword:
+          type: string
+        mustChangePassword:
+          type: boolean
+      required:
+      - userId
+      - temporaryPassword
+      - mustChangePassword
+    ControlledVocabulary:
+      type: object
+      properties:
+        vocabId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        name:
+          type: string
+        synonyms:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+      required:
+      - vocabId
+      - type
+      - name
+      - synonyms
+      - isActive
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+        password:
+          type: string
+          minLength: 1
+          maxLength: 256
+      required:
+      - username
+      - password
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+      required:
+      - currentPassword
+      - newPassword
+    EmptyRequest:
+      type: object
+      properties: {}
+      required: []
+    SemesterCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        academicYear:
+          type: string
+        term:
+          $ref: '#/components/schemas/Term'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        scheduleTemplateVersionId:
+          type: string
+          format: uuid
+      required:
+      - name
+      - academicYear
+      - term
+      - startDate
+      - endDate
+      - scheduleTemplateVersionId
+    SemesterUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        academicYear:
+          type: string
+        term:
+          $ref: '#/components/schemas/Term'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        scheduleTemplateVersionId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    CalendarExceptionCreateRequest:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/CalendarExceptionType'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        makeupWeekday:
+          type:
+          - integer
+          - 'null'
+        note:
+          type:
+          - string
+          - 'null'
+      required:
+      - type
+      - startDate
+      - endDate
+    ScheduleTemplateCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        openWeekdays:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          minItems: 1
+      required:
+      - name
+      - openWeekdays
+      - periods
+    ScheduleTemplateVersionCreateRequest:
+      type: object
+      properties:
+        baseVersionId:
+          type: string
+          format: uuid
+        openWeekdays:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          minItems: 1
+      required:
+      - openWeekdays
+      - periods
+    GradeCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+      required:
+      - name
+    GradeUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    ClassCreateRequest:
+      type: object
+      properties:
+        gradeId:
+          type: string
+          format: uuid
+        serialNo:
+          type: integer
+          minimum: 1
+          maximum: 99
+        headTeacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        studentCount:
+          type: integer
+          minimum: 0
+      required:
+      - gradeId
+      - serialNo
+      - studentCount
+    ClassUpdateRequest:
+      type: object
+      properties:
+        serialNo:
+          type: integer
+          minimum: 1
+          maximum: 99
+        headTeacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        studentCount:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    SubjectCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+      - name
+    SubjectUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    SubjectPeriodRulePutRequest:
+      type: object
+      properties:
+        weeklyPeriods:
+          type: integer
+          minimum: 0
+        consecutivePreference:
+          $ref: '#/components/schemas/ConsecutivePreference'
+        forbiddenSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        timeSlotPreference:
+          $ref: '#/components/schemas/TimeSlotPreference'
+        periodBalanceEnabled:
+          type: boolean
+        amPmBalanceEnabled:
+          type: boolean
+        fixedSlotRuleEnabled:
+          type: boolean
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - weeklyPeriods
+      - consecutivePreference
+      - forbiddenSlots
+      - timeSlotPreference
+      - periodBalanceEnabled
+      - amPmBalanceEnabled
+      - fixedSlotRuleEnabled
+    TeacherCreateRequest:
+      type: object
+      properties:
+        employeeNo:
+          type: string
+        name:
+          type: string
+        gender:
+          $ref: '#/components/schemas/Gender'
+        phone:
+          type:
+          - string
+          - 'null'
+        provisionAccount:
+          type: boolean
+      required:
+      - employeeNo
+      - name
+      - gender
+    TeacherUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        gender:
+          $ref: '#/components/schemas/Gender'
+        phone:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    TeacherDeactivateRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    TeachingAssignmentCreateRequest:
+      type: object
+      properties:
+        teacherId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        weeklyPeriods:
+          type: integer
+          minimum: 0
+        consecutivePreference:
+          $ref: '#/components/schemas/ConsecutivePreference'
+        forbiddenSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        exemptedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+      required:
+      - teacherId
+      - subjectId
+      - classId
+      - weeklyPeriods
+      - consecutivePreference
+      - forbiddenSlots
+      - exemptedSlots
+    TeachingAssignmentUpdateRequest:
+      type: object
+      properties:
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        weeklyPeriods:
+          type: integer
+          minimum: 0
+        consecutivePreference:
+          $ref: '#/components/schemas/ConsecutivePreference'
+        forbiddenSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        exemptedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    VenueCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/VenueType'
+        capacity:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/VenueStatus'
+      required:
+      - name
+      - type
+      - capacity
+    VenueUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/VenueType'
+        capacity:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/VenueStatus'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    CombinedClassCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 2
+        periodConstraint:
+          type: object
+          additionalProperties: true
+      required:
+      - name
+      - teacherId
+      - classIds
+    CombinedClassUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 2
+        periodConstraint:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    WalkingGroupCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        subjectId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+      required:
+      - name
+      - subjectId
+      - teacherId
+      - venueId
+      - classIds
+    WalkingGroupUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        subjectId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    TimetablePlanCreateRequest:
+      type: object
+      properties:
+        semesterId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        scheduleTemplateVersionId:
+          type: string
+          format: uuid
+      required:
+      - semesterId
+      - name
+      - scheduleTemplateVersionId
+    TimetablePlanUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - name
+      - version
+    GeneratePlanRequest:
+      type: object
+      properties:
+        preserveLocked:
+          type: boolean
+      required: []
+    SaveAsPlanRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - name
+      - version
+    PublishPlanRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        confirmOverwrite:
+          type: boolean
+      required:
+      - version
+      - confirmOverwrite
+    MoveOperation:
+      type: object
+      properties:
+        lessonId:
+          type: string
+          format: uuid
+        from:
+          $ref: '#/components/schemas/Slot'
+        to:
+          $ref: '#/components/schemas/Slot'
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
+      required:
+      - lessonId
+      - from
+      - to
+      - weekParity
+    MoveBatchRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        unitId:
+          type: string
+          format: uuid
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MoveOperation'
+          minItems: 1
+      required:
+      - version
+      - unitId
+      - operations
+    AdjustmentBatchRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        unitId:
+          type: string
+          format: uuid
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MoveOperation'
+          minItems: 1
+      required:
+      - version
+      - unitId
+      - operations
+    AdjustmentUndoRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        unitId:
+          type: string
+          format: uuid
+      required:
+      - version
+      - unitId
+    LessonCreateRequest:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+        period:
+          type: integer
+          minimum: 1
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
+        subjectId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        venueId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        unitType:
+          $ref: '#/components/schemas/SchedulingUnitType'
+        unitId:
+          type: string
+          format: uuid
+        classIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+      required:
+      - weekday
+      - period
+      - weekParity
+      - subjectId
+      - teacherId
+      - unitType
+      - unitId
+      - classIds
+    ConflictIgnoreRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - reason
+      - version
+    ConflictResolveRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - version
+    ArchiveRequest:
+      type: object
+      properties:
+        confirm:
+          type: boolean
+          enum:
+          - true
+      required:
+      - confirm
+    SwitchSemesterRequest:
+      type: object
+      properties:
+        draftResolution:
+          type: string
+          enum:
+          - SAVE
+          - DISCARD
+          - CANCEL
+        planVersion:
+          type: integer
+          minimum: 0
+      required: []
+    UserCreateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        displayName:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        teacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        password:
+          type:
+          - string
+          - 'null'
+      required:
+      - username
+      - displayName
+      - role
+    UserUpdateRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - displayName
+      - version
+    UserRoleUpdateRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+        teacherId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - role
+      - version
+    ResetPasswordRequest:
+      type: object
+      properties: {}
+      required: []
+    PrintTemplateCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        paperSize:
+          $ref: '#/components/schemas/PrintPaperSize'
+        orientation:
+          $ref: '#/components/schemas/PrintOrientation'
+        marginMm:
+          type: object
+          properties:
+            top:
+              type: integer
+            right:
+              type: integer
+            bottom:
+              type: integer
+            left:
+              type: integer
+          required:
+          - top
+          - right
+          - bottom
+          - left
+        title:
+          type:
+          - string
+          - 'null'
+        headerText:
+          type:
+          - string
+          - 'null'
+        footerText:
+          type:
+          - string
+          - 'null'
+      required:
+      - name
+      - paperSize
+      - orientation
+      - marginMm
+    PrintTemplateUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        paperSize:
+          $ref: '#/components/schemas/PrintPaperSize'
+        orientation:
+          $ref: '#/components/schemas/PrintOrientation'
+        marginMm:
+          type: object
+          properties:
+            top:
+              type: integer
+            right:
+              type: integer
+            bottom:
+              type: integer
+            left:
+              type: integer
+          required:
+          - top
+          - right
+          - bottom
+          - left
+        title:
+          type:
+          - string
+          - 'null'
+        headerText:
+          type:
+          - string
+          - 'null'
+        footerText:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - version
+    PrintRenderRequest:
+      type: object
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        dimension:
+          $ref: '#/components/schemas/TimetableDimension'
+        objectId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        semesterId:
+          type: string
+          format: uuid
+        parity:
+          $ref: '#/components/schemas/WeekParity'
+      required:
+      - templateId
+      - dimension
+      - semesterId
+      - parity
+    ExportRequest:
+      type: object
+      properties:
+        dimension:
+          $ref: '#/components/schemas/ExportDimension'
+        semesterId:
+          type: string
+          format: uuid
+        timetableDimension:
+          $ref: '#/components/schemas/TimetableDimension'
+        objectIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        parity:
+          $ref: '#/components/schemas/WeekParity'
+      required:
+      - dimension
+      - semesterId
+    ActionResultEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ActionResult'
+      required:
+      - data
+    UserEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+      required:
+      - data
+    SemesterEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Semester'
+      required:
+      - data
+    CalendarExceptionEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CalendarException'
+      required:
+      - data
+    ScheduleTemplateEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ScheduleTemplate'
+      required:
+      - data
+    ScheduleTemplateVersionEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ScheduleTemplateVersion'
+      required:
+      - data
+    GradeEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Grade'
+      required:
+      - data
+    ClassEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Class'
+      required:
+      - data
+    SubjectEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Subject'
+      required:
+      - data
+    SubjectPeriodRuleEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/SubjectPeriodRule'
+      required:
+      - data
+    TeacherEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Teacher'
+      required:
+      - data
+    TeachingAssignmentEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TeachingAssignment'
+      required:
+      - data
+    VenueEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Venue'
+      required:
+      - data
+    CombinedClassEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CombinedClass'
+      required:
+      - data
+    WalkingGroupEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/WalkingGroup'
+      required:
+      - data
+    TimetablePlanEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TimetablePlan'
+      required:
+      - data
+    LessonEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Lesson'
+      required:
+      - data
+    ConflictDetailEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ConflictDetail'
+      required:
+      - data
+    TimetableEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Timetable'
+      required:
+      - data
+    IdleSlotsEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/IdleSlots'
+      required:
+      - data
+    OperationLogEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/OperationLog'
+      required:
+      - data
+    ArchiveStatusEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ArchiveStatus'
+      required:
+      - data
+    ImportBatchEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ImportBatch'
+      required:
+      - data
+    ImportPreviewEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ImportPreview'
+      required:
+      - data
+    PrintTemplateEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PrintTemplate'
+      required:
+      - data
+    ExportOptionsEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ExportOptions'
+      required:
+      - data
+    ColumnDictionaryEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ColumnDictionary'
+      required:
+      - data
+    MoveValidationEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/MoveValidation'
+      required:
+      - data
+    AdjustmentResultEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AdjustmentResult'
+      required:
+      - data
+    TemplateValidationEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TemplateValidation'
+      required:
+      - data
+    ProvisioningResultEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ProvisioningResult'
+      required:
+      - data
+    SemesterListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Semester'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    ScheduleTemplateListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleTemplate'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    ScheduleTemplateVersionListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleTemplateVersion'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    CalendarExceptionListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CalendarException'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    GradeListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Grade'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    ClassListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Class'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    SubjectListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Subject'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    TeacherListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Teacher'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    TeachingAssignmentListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TeachingAssignment'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    VenueListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Venue'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    CombinedClassListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CombinedClass'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    WalkingGroupListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/WalkingGroup'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    TimetablePlanListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TimetablePlan'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    ConflictDetailListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConflictDetail'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    UnscheduledLessonListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/UnscheduledLesson'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    OperationLogListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OperationLog'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    UserListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    PrintTemplateListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PrintTemplate'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    ControlledVocabularyListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlledVocabulary'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+          required:
+          - items
+          - page
+          - pageSize
+          - total
+      required:
+      - data
+    WorkloadListEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkloadRow'
+            scope:
+              type: string
+              enum:
+              - SEMESTER
+              - WEEK
+            weekIndex:
+              type:
+              - integer
+              - 'null'
+            publishedPlanId:
+              type:
+              - string
+              - 'null'
+              format: uuid
+          required:
+          - items
+          - scope
+      required:
+      - data
+    CsrfEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CsrfData'
+      required:
+      - data
+    HealthEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/HealthData'
+      required:
+      - data
+    LoginData:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - user
+    LoginEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/LoginData'
+      required:
+      - data
+    ResolveConfigEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ResolveConfigResult'
+      required:
+      - data
+    ResetPasswordEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ResetPasswordResult'
+      required:
+      - data
+    ArchiveActionEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/SemesterArchive'
+      required:
+      - data
+  responses:
+    BadRequest:
+      description: 请求参数或请求体校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthenticated:
+      description: 会话缺失、失效或账号已停用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: 角色或数据范围不允许
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: 资源不存在或已被删除
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: 并发、唯一键、引用保护、状态机或草稿守卫冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    TooLarge:
+      description: 上传文件超过 20 MB
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ImportRowError:
+      description: 导入数据行校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    AccountLocked:
+      description: 登录失败次数过多
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Internal:
+      description: 未预期服务端异常
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unavailable:
+      description: 数据库健康检查失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NoContent:
+      description: 操作成功，无响应体
+    XlsxFile:
+      description: XLSX 文件
+      content:
+        application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+          schema:
+            type: string
+            format: binary
+    CsvFile:
+      description: UTF-8 BOM CSV 文件（一次性下载）
+      content:
+        text/csv:
+          schema:
+            type: string
+            format: binary
+    PdfFile:
+      description: PDF 文件
+      content:
+        application/pdf:
+          schema:
+            type: string
+            format: binary
