@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:int-01:design": "vitest run backend/tests/int-01-design.test.ts",
     "db:migrate": "tsx backend/src/scripts/migrate.ts",
     "db:seed": "tsx backend/src/scripts/seed.ts",
     "contracts:lint": "npx --yes @redocly/cli@latest lint contracts/openapi.yaml",
