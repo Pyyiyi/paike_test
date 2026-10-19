@@ -1359,6 +1359,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 乐观锁版本
+        schema:
+          type: integer
+          minimum: 1
       security:
       - cookieAuth: []
         csrfToken: []
@@ -1400,6 +1407,52 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TeacherDeactivateRequest'
+      x-csrf-required: true
+      security:
+      - cookieAuth: []
+        csrfToken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /teachers/{id}/restore:
+    post:
+      tags:
+      - Resource
+      summary: 教师恢复在职
+      operationId: restoreTeacher
+      x-phase: P1
+      x-required-roles:
+      - ADMIN
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 路径参数
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherRestoreRequest'
       x-csrf-required: true
       security:
       - cookieAuth: []
@@ -1557,6 +1610,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 乐观锁版本
+        schema:
+          type: integer
+          minimum: 1
       security:
       - cookieAuth: []
         csrfToken: []
@@ -5029,7 +5089,7 @@ components:
           format: uuid
         weeklyPeriods:
           type: integer
-          minimum: 0
+          minimum: 1
         consecutivePreference:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
@@ -6161,8 +6221,10 @@ components:
       properties:
         employeeNo:
           type: string
+          pattern: ^T[0-9]+$
         name:
           type: string
+          minLength: 1
         gender:
           $ref: '#/components/schemas/Gender'
         phone:
@@ -6175,6 +6237,7 @@ components:
       - employeeNo
       - name
       - gender
+      additionalProperties: false
     TeacherUpdateRequest:
       type: object
       properties:
@@ -6191,6 +6254,7 @@ components:
           minimum: 1
       required:
       - version
+      additionalProperties: false
     TeacherDeactivateRequest:
       type: object
       properties:
@@ -6199,6 +6263,16 @@ components:
           minimum: 1
       required:
       - version
+      additionalProperties: false
+    TeacherRestoreRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+      additionalProperties: false
     TeachingAssignmentCreateRequest:
       type: object
       properties:
@@ -6218,7 +6292,7 @@ components:
           format: uuid
         weeklyPeriods:
           type: integer
-          minimum: 0
+          minimum: 1
         consecutivePreference:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
@@ -6247,7 +6321,7 @@ components:
           format: uuid
         weeklyPeriods:
           type: integer
-          minimum: 0
+          minimum: 1
         consecutivePreference:
           $ref: '#/components/schemas/ConsecutivePreference'
         forbiddenSlots:
@@ -6263,6 +6337,7 @@ components:
           minimum: 1
       required:
       - version
+      additionalProperties: false
     VenueCreateRequest:
       type: object
       properties:

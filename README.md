@@ -104,6 +104,7 @@ docs/
     dependency-graph.yaml
     shared-kernel-api.md
     module-template.md
+    designs/
     phase-contracts/
   trace/runs/v1/
     spac.md
@@ -201,6 +202,7 @@ PRINT_BASE_URL=http://localhost:3000
 | `docs/knowledge/dependency-graph.yaml` | 域依赖拓扑 |
 | `docs/knowledge/shared-kernel-api.md` | 共享内核 API |
 | `docs/knowledge/module-template.md` | 模块骨架模板 |
+| `docs/knowledge/designs/` | 领域卡设计说明（含 D03 教师/任课/账号联动） |
 | `docs/knowledge/phase-contracts/` | 各 Phase 契约摘要 |
 
 ## 9. 本轮状态
