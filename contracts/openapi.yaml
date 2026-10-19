@@ -1216,7 +1216,7 @@ paths:
       - name: type
         in: query
         required: true
-        description: SUBJECT / GRADE / VENUE
+        description: SUBJECT / GRADE / VENUE / COMBINED_CLASS / WALKING_GROUP
         schema:
           type: string
       security:
@@ -5065,7 +5065,7 @@ components:
           $ref: '#/components/schemas/VenueType'
         capacity:
           type: integer
-          minimum: 0
+          minimum: 1
         status:
           $ref: '#/components/schemas/VenueStatus'
         version:
@@ -5090,9 +5090,7 @@ components:
           type: string
           format: uuid
         venueId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         classIds:
           type: array
@@ -5101,7 +5099,14 @@ components:
             format: uuid
         periodConstraint:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            slots:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slot'
+          required:
+          - slots
         version:
           type: integer
           minimum: 1
@@ -5109,6 +5114,7 @@ components:
       - combinedClassId
       - name
       - teacherId
+      - venueId
       - classIds
       - periodConstraint
       - version
@@ -6272,7 +6278,7 @@ components:
           $ref: '#/components/schemas/VenueType'
         capacity:
           type: integer
-          minimum: 0
+          minimum: 1
         status:
           $ref: '#/components/schemas/VenueStatus'
       required:
@@ -6288,7 +6294,7 @@ components:
           $ref: '#/components/schemas/VenueType'
         capacity:
           type: integer
-          minimum: 0
+          minimum: 1
         status:
           $ref: '#/components/schemas/VenueStatus'
         version:
@@ -6305,9 +6311,7 @@ components:
           type: string
           format: uuid
         venueId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         classIds:
           type: array
@@ -6317,10 +6321,18 @@ components:
           minItems: 2
         periodConstraint:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            slots:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slot'
+          required:
+          - slots
       required:
       - name
       - teacherId
+      - venueId
       - classIds
     CombinedClassUpdateRequest:
       type: object
@@ -6331,9 +6343,7 @@ components:
           type: string
           format: uuid
         venueId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         classIds:
           type: array
@@ -6343,7 +6353,14 @@ components:
           minItems: 2
         periodConstraint:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            slots:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slot'
+          required:
+          - slots
         version:
           type: integer
           minimum: 1

@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
 import { createAuthRouter } from './modules/auth/auth.router';
+import { createResourceRouter } from './modules/resource/resource.router';
 import { createCsrfMiddleware } from './shared/auth/csrf';
 import { createForcedPasswordChangeGuard, createLoadCurrentUser } from './shared/auth/rbac';
 import type { AuthRuntime } from './shared/auth/runtime';
@@ -32,6 +33,7 @@ export function createApp(options: AppOptions = {}): Express {
     app.use(createLoadCurrentUser(options.auth));
     app.use(createForcedPasswordChangeGuard());
     app.use('/api/v1/auth', createAuthRouter(options.auth));
+    app.use('/api/v1', createResourceRouter(options.auth.pool));
   }
 
   app.use('/api/v1', createHealthRouter({ probe: options.probe }));
