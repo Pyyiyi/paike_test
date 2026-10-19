@@ -560,6 +560,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_one_published
   ON timetable_plan (semester_id) WHERE status = 'PUBLISHED' AND deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_status ON timetable_plan (semester_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_timetable_plan_source ON timetable_plan (source_plan_id) WHERE source_plan_id IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_active ON timetable_plan (semester_id, updated_at DESC) WHERE deleted_at IS NULL AND status IN ('DRAFT', 'PUBLISHED');
 
 CREATE TABLE IF NOT EXISTS lesson (
   lesson_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -585,6 +586,12 @@ CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher ON lesson (plan_id, teacher_i
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue ON lesson (plan_id, venue_id, weekday, period) WHERE venue_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_locked ON lesson (plan_id, locked) WHERE locked;
 CREATE INDEX IF NOT EXISTS idx_lesson_unit ON lesson (unit_type, unit_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_parity_slot ON lesson (plan_id, week_parity, weekday, period);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_weekday_period_parity ON lesson (plan_id, weekday, period, week_parity);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher_parity ON lesson (plan_id, teacher_id, weekday, period, week_parity);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue_parity ON lesson (plan_id, venue_id, weekday, period, week_parity) WHERE venue_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_unit_slot ON lesson (plan_id, unit_type, unit_id, weekday, period, week_parity);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_subject ON lesson (plan_id, subject_id);
 
 CREATE TABLE IF NOT EXISTS lesson_class (
   lesson_id  uuid NOT NULL REFERENCES lesson(lesson_id) ON DELETE CASCADE,
@@ -678,6 +685,10 @@ CREATE TABLE IF NOT EXISTS adjustment_history (
   CONSTRAINT ck_adjustment_operations_array CHECK (jsonb_typeof(operations) = 'array' AND jsonb_array_length(operations) > 0)
 );
 CREATE INDEX IF NOT EXISTS idx_adjustment_history_scope ON adjustment_history (plan_id, operator_id, session_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_adjustment_history_plan_created ON adjustment_history (plan_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_adjustment_history_replay ON adjustment_history (plan_id, operator_id, session_id, unit_id, created_at DESC) INCLUDE (action, operations, version_before, version_after);
+CREATE INDEX IF NOT EXISTS idx_adjustment_history_action ON adjustment_history (plan_id, action, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_adjustment_history_apply_unit ON adjustment_history (plan_id, operator_id, session_id, unit_id) WHERE action = 'APPLY';
 
 -- =============================================================================
 -- Governance / Identity support / Exchange（Phase 3）
@@ -698,6 +709,7 @@ CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log (created_a
 CREATE INDEX IF NOT EXISTS idx_operation_log_operator_created ON operation_log (operator_id, created_at DESC, log_id DESC);
 CREATE INDEX IF NOT EXISTS idx_operation_log_module_created ON operation_log (module, created_at DESC, log_id DESC);
 CREATE INDEX IF NOT EXISTS idx_operation_log_operator_module_created ON operation_log (operator_id, module, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_target_created ON operation_log (target_type, target_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS semester_archive (
   archive_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),

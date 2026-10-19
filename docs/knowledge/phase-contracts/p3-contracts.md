@@ -45,6 +45,7 @@ operation_log (
 );
 -- 索引：created_at DESC; (operator_id, created_at DESC); (module, created_at DESC);
 --       (operator_id, module, created_at DESC)；均以 log_id DESC 稳定排序。
+--       (target_type, target_id, created_at DESC) 供对象反查。
 -- 追加写触发器拒绝 UPDATE/DELETE；无更新/删除 API，无清理任务（A-20）。
 
 semester_archive (

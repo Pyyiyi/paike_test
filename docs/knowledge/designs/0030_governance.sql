@@ -35,6 +35,8 @@ CREATE INDEX IF NOT EXISTS idx_operation_log_module_created
   ON operation_log (module, created_at DESC, log_id DESC);
 CREATE INDEX IF NOT EXISTS idx_operation_log_operator_module_created
   ON operation_log (operator_id, module, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_target_created
+  ON operation_log (target_type, target_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS semester_archive (
   archive_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),

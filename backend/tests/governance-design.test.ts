@@ -32,6 +32,7 @@ describe('D07 operation log, archive and semester switch design contract', () =>
     expect(migration).toContain('idx_operation_log_operator_created');
     expect(migration).toContain('idx_operation_log_module_created');
     expect(migration).toContain('idx_operation_log_operator_module_created');
+    expect(migration).toContain('idx_operation_log_target_created');
     expect(schema).toContain("ARRAY['operation_log','semester_archive','conflict_ignore','adjustment_history','sys_audit_log']");
     expect(design).toContain('无更新/删除 API，无自动清理或归档删除任务');
   });

@@ -95,6 +95,7 @@ D05/D21 另有五类显式审计动作：`GENERATE`、`SAVE_AS`、`IGNORE_ONCE`�
 | `idx_operation_log_operator_created (operator_id, created_at DESC, log_id DESC)` | 按操作人筛选 |
 | `idx_operation_log_module_created (module, created_at DESC, log_id DESC)` | 按模块筛选 |
 | `idx_operation_log_operator_module_created (operator_id, module, created_at DESC, log_id DESC)` | 操作人 + 模块组合筛选 |
+| `idx_operation_log_target_created (target_type, target_id, created_at DESC)` | 按对象反查日志（D06 保留） |
 
 - 时间以 `created_at DESC, log_id DESC` 作为确定性排序；同一 Clock 时间戳也不会翻页抖动。
 - `trg_operation_log_append_only` 在 UPDATE/DELETE 前抛错，保证即使后续误加代码也无法改写历史。
@@ -320,7 +321,7 @@ writeOperationLog(tx, {
 4. D01 实现轮次在 `switchCurrent` 同一事务补齐 `bc.registry.semester.current-changed`；D05 实现 `PlanLifecycleService.archivePublished/discardDraft` 与 `PlanQueryService.listDrafts`。
 5. D01 现有 `archive/switchCurrent` 已写日志；D07 编排不得重复写日志。
 6. D05 设计中的 `action` 值统一改为中文动作，避免英文枚举进入日志内容。
-7. 实现轮次必须为 `operation_log`/`semester_archive` 增加追加写触发器，并登记 4 个日志索引。
+7. 实现轮次必须为 `operation_log`/`semester_archive` 增加追加写触发器，并登记 5 个日志索引。
 
 ## 11. 验收结论口径
 
