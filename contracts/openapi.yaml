@@ -2959,6 +2959,7 @@ paths:
       x-phase: P2
       x-required-roles:
       - ADMIN
+      - TEACHER
       parameters:
       - name: semesterId
         in: query
@@ -2980,10 +2981,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: planId
+        in: query
+        required: false
+        description: 可选方案；省略时优先 PUBLISHED，否则最新 DRAFT
+        schema:
+          type: string
+          format: uuid
+      - name: unitType
+        in: query
+        required: false
+        description: 仅 ASSIGNMENT 维度必填，用于区分常规任课/合班/走班单元
+        schema:
+          $ref: '#/components/schemas/SchedulingUnitType'
       - name: parity
         in: query
         required: false
-        description: ''
+        description: 周次视图；ALL 显示全部，ODD 显示 ALL+ODD，EVEN 显示 ALL+EVEN
         schema:
           $ref: '#/components/schemas/WeekParity'
       security:
@@ -3135,11 +3149,19 @@ paths:
       x-phase: P2
       x-required-roles:
       - ADMIN
+      - TEACHER
       parameters:
       - name: semesterId
         in: query
         required: true
         description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: planId
+        in: query
+        required: false
+        description: 可选方案；与 /timetables 使用同一解析规则
         schema:
           type: string
           format: uuid
@@ -6782,6 +6804,9 @@ components:
         unitId:
           type: string
           format: uuid
+        confirm:
+          type: boolean
+          description: 前端二次确认后必须为 true；否则零写入
         operations:
           type: array
           items:
@@ -6790,6 +6815,7 @@ components:
       required:
       - version
       - unitId
+      - confirm
       - operations
     AdjustmentUndoRequest:
       type: object
