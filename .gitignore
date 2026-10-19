@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.npm-cache/
+var/
+*.log
+*.tsbuildinfo
+**/.DS_Store
+.codex/
+.claude/
+.symphony_init_marker
