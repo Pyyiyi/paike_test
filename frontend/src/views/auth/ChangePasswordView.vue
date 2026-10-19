@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/shared/api/auth.api';
+import { resetCsrfToken } from '@/shared/api/http';
 import { useSessionStore } from '@/shared/stores/session';
-import { fieldErrors, friendlyError } from '@/shared/text/messages';
+import {
+  AUTH_COPY,
+  PASSWORD_POLICY_COPY,
+  evaluatePasswordPolicy,
+  fieldErrors,
+  friendlyError,
+} from '@/shared/text/messages';
 
 const router = useRouter();
 const session = useSessionStore();
@@ -12,25 +19,48 @@ const errors = reactive<Record<string, string>>({});
 const message = ref('');
 const submitting = ref(false);
 
+const forced = computed(() => session.mustChangePassword);
+const title = computed(() => (forced.value ? AUTH_COPY.forcedPasswordTitle : AUTH_COPY.voluntaryPasswordTitle));
+const intro = computed(() => (forced.value ? AUTH_COPY.forcedPasswordIntro : AUTH_COPY.voluntaryPasswordIntro));
+const policy = computed(() =>
+  evaluatePasswordPolicy(form.newPassword, form.currentPassword, form.confirmPassword),
+);
+
 function clearErrors(): void {
   Object.keys(errors).forEach((key) => delete errors[key]);
   message.value = '';
 }
 
-async function submit(): Promise<void> {
-  clearErrors();
+function validate(): boolean {
   if (!form.currentPassword) {
-    errors.currentPassword = '请输入当前密码';
+    errors.currentPassword = PASSWORD_POLICY_COPY.currentPasswordRequired;
   }
   if (!form.newPassword) {
-    errors.newPassword = '请输入新密码';
-  } else if (form.newPassword.length < 8) {
-    errors.newPassword = '新密码至少需要 8 个字符';
+    errors.newPassword = PASSWORD_POLICY_COPY.newPasswordRequired;
+  } else if (!policy.value.length) {
+    errors.newPassword = PASSWORD_POLICY_COPY.minLength;
+  } else if (!policy.value.classes) {
+    errors.newPassword = PASSWORD_POLICY_COPY.characterClasses;
+  } else if (!policy.value.different) {
+    errors.newPassword = PASSWORD_POLICY_COPY.sameAsCurrent;
   }
-  if (form.confirmPassword !== form.newPassword) {
-    errors.confirmPassword = '两次输入的新密码不一致';
+
+  if (!form.confirmPassword) {
+    errors.confirmPassword = PASSWORD_POLICY_COPY.confirmPasswordRequired;
+  } else if (!policy.value.matches) {
+    errors.confirmPassword = PASSWORD_POLICY_COPY.confirmationMismatch;
   }
-  if (Object.keys(errors).length > 0) {
+
+  return Object.keys(errors).length === 0;
+}
+
+function backToWorkspace(): void {
+  void router.push(session.homePath);
+}
+
+async function submit(): Promise<void> {
+  clearErrors();
+  if (!validate()) {
     return;
   }
 
@@ -40,8 +70,10 @@ async function submit(): Promise<void> {
       currentPassword: form.currentPassword,
       newPassword: form.newPassword,
     });
-    await session.fetchMe(true);
-    await router.replace(session.homePath);
+    session.clear();
+    session.loaded = true;
+    resetCsrfToken();
+    await router.replace({ name: 'login', query: { reason: 'password-changed' } });
   } catch (caught) {
     message.value = friendlyError(caught);
     Object.assign(errors, fieldErrors(caught));
@@ -61,26 +93,75 @@ async function submit(): Promise<void> {
           <small>账号安全</small>
         </div>
       </div>
-      <h1 id="change-password-title">请先修改初始密码</h1>
-      <p class="auth-intro">新密码至少 8 位，并包含大写字母、小写字母、数字、符号中的至少三类。</p>
+      <h1 id="change-password-title">{{ title }}</h1>
+      <p class="auth-intro">{{ intro }}</p>
 
       <el-alert v-if="message" type="error" :title="message" :closable="false" show-icon class="auth-alert" />
 
-      <form @submit.prevent="submit">
-        <label class="field-label" for="current-password">当前密码</label>
-        <el-input id="current-password" v-model="form.currentPassword" size="large" type="password" show-password autocomplete="current-password" />
+      <form autocomplete="off" @submit.prevent="submit">
+        <label class="field-label" for="current-password">{{ AUTH_COPY.currentPasswordLabel }}</label>
+        <el-input
+          id="current-password"
+          v-model="form.currentPassword"
+          name="current-password"
+          size="large"
+          type="password"
+          autocomplete="off"
+          show-password
+        />
         <p v-if="errors.currentPassword" class="field-error">{{ errors.currentPassword }}</p>
 
-        <label class="field-label" for="new-password">新密码</label>
-        <el-input id="new-password" v-model="form.newPassword" size="large" type="password" show-password autocomplete="new-password" />
+        <label class="field-label" for="new-password">{{ AUTH_COPY.newPasswordLabel }}</label>
+        <el-input
+          id="new-password"
+          v-model="form.newPassword"
+          name="new-password"
+          size="large"
+          type="password"
+          autocomplete="off"
+          show-password
+        />
         <p v-if="errors.newPassword" class="field-error">{{ errors.newPassword }}</p>
 
-        <label class="field-label" for="confirm-password">确认新密码</label>
-        <el-input id="confirm-password" v-model="form.confirmPassword" size="large" type="password" show-password autocomplete="new-password" />
+        <section class="policy-panel" data-password-policy aria-label="密码策略">
+          <strong>{{ PASSWORD_POLICY_COPY.title }}</strong>
+          <ul>
+            <li data-policy="length" :class="{ passed: policy.length }">
+              <span aria-hidden="true">{{ policy.length ? '✓' : '○' }}</span>
+              {{ PASSWORD_POLICY_COPY.minLength }}
+            </li>
+            <li data-policy="classes" :class="{ passed: policy.classes }">
+              <span aria-hidden="true">{{ policy.classes ? '✓' : '○' }}</span>
+              {{ PASSWORD_POLICY_COPY.characterClasses }}（当前 {{ policy.classCount }} 类）
+            </li>
+            <li data-policy="different" :class="{ passed: policy.different }">
+              <span aria-hidden="true">{{ policy.different ? '✓' : '○' }}</span>
+              {{ PASSWORD_POLICY_COPY.differentFromCurrent }}
+            </li>
+            <li data-policy="matches" :class="{ passed: policy.matches }">
+              <span aria-hidden="true">{{ policy.matches ? '✓' : '○' }}</span>
+              {{ PASSWORD_POLICY_COPY.confirmationMatches }}
+            </li>
+          </ul>
+        </section>
+
+        <label class="field-label" for="confirm-password">{{ AUTH_COPY.confirmPasswordLabel }}</label>
+        <el-input
+          id="confirm-password"
+          v-model="form.confirmPassword"
+          name="confirm-password"
+          size="large"
+          type="password"
+          autocomplete="off"
+          show-password
+        />
         <p v-if="errors.confirmPassword" class="field-error">{{ errors.confirmPassword }}</p>
 
-        <el-button class="login-button" type="primary" size="large" native-type="submit" :loading="submitting">
-          保存新密码
+        <el-button class="change-password-button" type="primary" size="large" native-type="submit" :loading="submitting">
+          {{ AUTH_COPY.changePasswordButton }}
+        </el-button>
+        <el-button v-if="!forced" class="back-button" size="large" @click="backToWorkspace">
+          {{ AUTH_COPY.backToWorkspace }}
         </el-button>
       </form>
     </section>
@@ -97,7 +178,7 @@ async function submit(): Promise<void> {
 }
 
 .auth-card {
-  width: 460px;
+  width: 500px;
   padding: 34px 38px 38px;
   border: 1px solid #d7e0ec;
   border-radius: 16px;
@@ -169,8 +250,40 @@ h1 {
   font-size: 12px;
 }
 
-.login-button {
+.policy-panel {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid #dce5ef;
+  border-radius: 9px;
+  background: #f7f9fc;
+}
+
+.policy-panel strong {
+  color: #3d4b61;
+  font-size: 12px;
+}
+
+.policy-panel ul {
+  display: grid;
+  gap: 5px;
+  margin: 9px 0 0;
+  padding: 0;
+  color: #7b8798;
+  font-size: 12px;
+  list-style: none;
+}
+
+.policy-panel li.passed {
+  color: #1f7a49;
+}
+
+.change-password-button {
   width: 100%;
   margin-top: 24px;
+}
+
+.back-button {
+  width: 100%;
+  margin: 10px 0 0;
 }
 </style>

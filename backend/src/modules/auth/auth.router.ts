@@ -71,6 +71,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
           userAgent,
           detail: { reason: 'ACCOUNT_LOCKED' },
         });
+        response.set('Retry-After', String(remainingSeconds));
         throw createAppError('ACCOUNT_LOCKED',
           `登录失败次数过多，请 ${Math.max(1, Math.ceil(remainingSeconds / 60))} 分钟后再试`,
         );
@@ -207,6 +208,7 @@ export function createAuthRouter(runtime: AuthRuntime): Router {
         ip: normalizeIp(request.ip),
         userAgent: request.get('user-agent') ?? undefined,
       });
+      await destroySession(request, runtime.config);
 
       response.json({ data: { ok: true } });
     }),

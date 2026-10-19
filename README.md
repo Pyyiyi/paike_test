@@ -56,6 +56,9 @@ npm run dev
 | 重复 seed | 保留现有密码与改密状态，只确保唯一 `admin` 账号为 `ADMIN` / `ENABLED` |
 
 > 初始密码不得写入任何日志文件、不得提交到版本库。D15 与受控词表锚点见 `docs/knowledge/seed-anchors.md`。
+>
+> 登录页不展示演示账号、默认密码或一键填充入口；首次登录强制跳转 `/change-password`。修改成功后当前会话失效，必须使用新密码重新登录。
+> 同一用户名与 IP 在 15 分钟内连续失败 5 次会锁定 15 分钟，登录页显示剩余分钟并禁用提交。
 
 ### 2.4 常用命令
 
@@ -143,7 +146,7 @@ PRINT_BASE_URL=http://localhost:3000
 | 路由 | 页面 | 功能 |
 |------|------|------|
 | `/login` | 登录 | F20 认证 |
-| `/change-password` | 强制改密 | F20 |
+| `/change-password` | 修改密码（强制/主动） | F20 |
 | `/` | 系统概览 | 学期状态、快捷入口、最近日志 |
 | `/semesters` | 学期管理 | F1 |
 | `/schedule-templates` | 作息模板 | F2 |

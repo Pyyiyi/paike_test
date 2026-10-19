@@ -20,28 +20,41 @@ export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
   readonly details: ErrorDetail[];
+  readonly retryAfterSeconds?: number;
 
-  constructor(code: string, status: number, message: string, details: ErrorDetail[] = []) {
+  constructor(
+    code: string,
+    status: number,
+    message: string,
+    details: ErrorDetail[] = [],
+    retryAfterSeconds?: number,
+  ) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
     this.details = details;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
 let csrfToken: string | null = null;
 let csrfRequest: Promise<string> | null = null;
-let unauthorizedHandler: () => void = () => {
+const defaultUnauthorizedHandler = () => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
   }
 };
+let unauthorizedHandler: () => void = defaultUnauthorizedHandler;
 
 const API_BASE = import.meta.env.VITE_API_BASE_PATH ?? '/api/v1';
 
 export function onUnauthorized(handler: () => void): void {
   unauthorizedHandler = handler;
+}
+
+export function resetUnauthorizedHandler(): void {
+  unauthorizedHandler = defaultUnauthorizedHandler;
 }
 
 export function resetCsrfToken(): void {
@@ -85,11 +98,13 @@ function rawErrorMessage(payload: unknown): string | undefined {
   return readString((payload as ApiErrorPayload | null)?.error?.message);
 }
 
-function errorFromResponse(status: number, payload: unknown): ApiError {
+function errorFromResponse(response: Response, payload: unknown): ApiError {
   const raw = (payload as ApiErrorPayload | null)?.error;
   const code = readString(raw?.code) ?? 'UNKNOWN_ERROR';
   const message = friendlyError({ code, message: readString(raw?.message) });
-  return new ApiError(code, status, message, readDetails(raw?.details));
+  const retryAfter = Number(response.headers.get('retry-after') ?? '');
+  const retryAfterSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined;
+  return new ApiError(code, response.status, message, readDetails(raw?.details), retryAfterSeconds);
 }
 
 async function fetchCsrfToken(): Promise<string> {
@@ -105,7 +120,7 @@ async function fetchCsrfToken(): Promise<string> {
       .then(async (response) => {
         const payload = await readPayload(response);
         if (!response.ok) {
-          throw errorFromResponse(response.status, payload);
+          throw errorFromResponse(response, payload);
         }
         const token = readString((payload as { data?: { csrfToken?: unknown } } | null)?.data?.csrfToken);
         if (!token) {
@@ -172,7 +187,7 @@ async function request<T>(method: string, path: string, body?: unknown, params?:
       unauthorizedHandler();
     }
     if (!response.ok) {
-      const apiError = errorFromResponse(response.status, payload);
+      const apiError = errorFromResponse(response, payload);
       if (apiError.status === 409 && apiError.code === 'VERSION_CONFLICT') {
         showVersionConflict(apiError.message);
       }
@@ -213,8 +228,11 @@ export const http = {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    if (response.status === 401) {
+      unauthorizedHandler();
+    }
     if (!response.ok) {
-      throw errorFromResponse(response.status, await readPayload(response));
+      throw errorFromResponse(response, await readPayload(response));
     }
     return response.blob();
   },

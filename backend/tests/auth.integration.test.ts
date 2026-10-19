@@ -221,6 +221,8 @@ describeWithDatabase('auth and session security', () => {
     const locked = await login(agent, token, username, 'WrongPass1!');
     expect(locked.status).toBe(423);
     expect(locked.body.error.code).toBe('ACCOUNT_LOCKED');
+    expect(Number(locked.headers['retry-after'])).toBeGreaterThan(0);
+    expect(Number(locked.headers['retry-after'])).toBeLessThanOrEqual(15 * 60);
 
     nowMs += 16 * 60 * 1000;
     const unlocked = await login(agent, token, username, GOOD_PASSWORD);
@@ -307,6 +309,20 @@ describeWithDatabase('auth and session security', () => {
       .set('X-CSRF-Token', token)
       .send({ currentPassword: GOOD_PASSWORD, newPassword: NEW_PASSWORD });
     expect(changed.status).toBe(200);
+
+    const expiredMe = await agent.get('/api/v1/auth/me');
+    expect(expiredMe.status).toBe(401);
+    expect(expiredMe.body.error.code).toBe('UNAUTHENTICATED');
+
+    const sessions = await pool.query<{ revoked_at: Date | null }>(
+      'SELECT revoked_at FROM sys_session WHERE user_id = $1',
+      [userId],
+    );
+    expect(sessions.rows.every((row) => row.revoked_at !== null)).toBe(true);
+
+    const reloggedIn = await login(agent, token, username, NEW_PASSWORD);
+    expect(reloggedIn.status).toBe(200);
+    expect(reloggedIn.body.data.user.mustChangePassword).toBe(false);
 
     const me = await agent.get('/api/v1/auth/me');
     expect(me.status).toBe(200);
