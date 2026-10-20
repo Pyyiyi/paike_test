@@ -1216,7 +1216,7 @@ paths:
       - name: type
         in: query
         required: true
-        description: SUBJECT / GRADE / VENUE
+        description: SUBJECT / GRADE / VENUE / COMBINED_CLASS / WALKING_GROUP
         schema:
           type: string
       security:
@@ -2224,6 +2224,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 当前方案乐观版本
+        schema:
+          type: integer
+          minimum: 0
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2766,6 +2773,13 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanVersionRequest'
+      x-csrf-required: true
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2812,6 +2826,13 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanVersionRequest'
+      x-csrf-required: true
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2904,6 +2925,13 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: version
+        in: query
+        required: true
+        description: 当前方案乐观版本
+        schema:
+          type: integer
+          minimum: 0
       security:
       - cookieAuth: []
         csrfToken: []
@@ -2931,6 +2959,7 @@ paths:
       x-phase: P2
       x-required-roles:
       - ADMIN
+      - TEACHER
       parameters:
       - name: semesterId
         in: query
@@ -2952,10 +2981,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: planId
+        in: query
+        required: false
+        description: 可选方案；省略时优先 PUBLISHED，否则最新 DRAFT
+        schema:
+          type: string
+          format: uuid
+      - name: unitType
+        in: query
+        required: false
+        description: 仅 ASSIGNMENT 维度必填，用于区分常规任课/合班/走班单元
+        schema:
+          $ref: '#/components/schemas/SchedulingUnitType'
       - name: parity
         in: query
         required: false
-        description: ''
+        description: 周次视图；ALL 显示全部，ODD 显示 ALL+ODD，EVEN 显示 ALL+EVEN
         schema:
           $ref: '#/components/schemas/WeekParity'
       security:
@@ -3107,11 +3149,19 @@ paths:
       x-phase: P2
       x-required-roles:
       - ADMIN
+      - TEACHER
       parameters:
       - name: semesterId
         in: query
         required: true
         description: ''
+        schema:
+          type: string
+          format: uuid
+      - name: planId
+        in: query
+        required: false
+        description: 可选方案；与 /timetables 使用同一解析规则
         schema:
           type: string
           format: uuid
@@ -3586,7 +3636,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserEnvelope'
+                $ref: '#/components/schemas/ProvisioningResultEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3741,6 +3791,12 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserVersionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3780,6 +3836,12 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserVersionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3896,6 +3958,12 @@ paths:
       x-phase: P3
       x-required-roles:
       - ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchProvisionRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -3964,6 +4032,12 @@ paths:
         description: 路径参数
         schema:
           $ref: '#/components/schemas/ImportModule'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportPreviewRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4004,6 +4078,12 @@ paths:
         description: 路径参数
         schema:
           $ref: '#/components/schemas/ImportModule'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportExecuteRequest'
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4026,10 +4106,10 @@ paths:
           $ref: '#/components/responses/Conflict'
         '413':
           $ref: '#/components/responses/TooLarge'
-        '422':
-          $ref: '#/components/responses/ImportRowError'
         '500':
           $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /import/batches/{batchId}:
     get:
       tags:
@@ -4347,6 +4427,23 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                logo:
+                  type: string
+                  format: binary
+                  description: PNG only; decoded size <= 2 MiB; SVG is rejected
+                version:
+                  type: integer
+                  minimum: 0
+              required:
+              - logo
+              - version
       security:
       - cookieAuth: []
         csrfToken: []
@@ -4433,6 +4530,35 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /print/html/{token}:
+    get:
+      tags:
+      - Print
+      summary: 获取一次性受保护打印 HTML（内部）
+      operationId: getProtectedPrintHtml
+      x-phase: P3
+      x-internal: true
+      parameters:
+      - name: token
+        in: path
+        required: true
+        description: 256-bit 一次性 token；60 秒有效
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 128
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/ProtectedHtml'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/Internal'
 components:
@@ -4583,6 +4709,26 @@ components:
       - UNDO
       - REDO
       x-enum-name: AdjustmentAction
+    ImportPreviewRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+      - file
+    ImportExecuteRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        confirm:
+          type: boolean
+          description: 前端二次确认后必须为 true
+      required:
+      - file
+      - confirm
     ImportModule:
       type: string
       enum:
@@ -4594,6 +4740,39 @@ components:
       - ASSIGNMENTS
       - VENUES
       x-enum-name: ImportModule
+    ImportIssueSeverity:
+      type: string
+      enum:
+      - ERROR
+      - WARNING
+      x-enum-name: ImportIssueSeverity
+    ImportErrorCode:
+      type: string
+      enum:
+      - REQUIRED_HEADER_MISSING
+      - DUPLICATE_HEADER
+      - UNKNOWN_COLUMN
+      - UNSUPPORTED_FORMAT
+      - UNSUPPORTED_ENCODING
+      - EMPTY_FILE
+      - PARSE_ERROR
+      - ROW_LIMIT_EXCEEDED
+      - FILE_TOO_LARGE
+      - REQUIRED_VALUE_MISSING
+      - INVALID_TYPE
+      - INVALID_FORMAT
+      - INVALID_ENUM
+      - INVALID_DATE
+      - VALUE_OUT_OF_RANGE
+      - REFERENCE_NOT_FOUND
+      - DUPLICATE_KEY
+      - CROSS_FIELD_INVALID
+      - INVALID_SLOT
+      - CONTROLLED_VOCABULARY_MISMATCH
+      - DATABASE_FAILURE
+      - TEMPLATE_NOT_FOUND
+      - ERROR_REPORT_CONSUMED
+      x-enum-name: ImportErrorCode
     ImportBatchStatus:
       type: string
       enum:
@@ -4617,6 +4796,12 @@ components:
       - VENUE
       - ASSIGNMENT
       x-enum-name: TimetableDimension
+    PrintDimension:
+      type: string
+      enum:
+      - CLASS
+      - TEACHER
+      x-enum-name: PrintDimension
     OperationModule:
       type: string
       enum:
@@ -4627,6 +4812,11 @@ components:
       - IMPORT
       - ARCHIVE
       - ADJUST
+      - GENERATE
+      - SAVE_AS
+      - IGNORE_ONCE
+      - LOCK
+      - UNLOCK
       x-enum-name: OperationModule
     PrintPaperSize:
       type: string
@@ -4761,17 +4951,33 @@ components:
           - string
           - 'null'
           format: uuid
+        teacherName:
+          type:
+          - string
+          - 'null'
         mustChangePassword:
           type: boolean
         status:
           $ref: '#/components/schemas/AccountStatus'
+        version:
+          type: integer
+          minimum: 1
+        lastLoginAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - userId
       - username
       - displayName
       - role
       - teacherId
+      - teacherName
       - mustChangePassword
+      - status
+      - version
+      - lastLoginAt
     CsrfData:
       type: object
       properties:
@@ -5025,6 +5231,10 @@ components:
           type: boolean
         fixedSlotRuleEnabled:
           type: boolean
+        fixedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
         version:
           type: integer
           minimum: 1
@@ -5038,6 +5248,7 @@ components:
       - periodBalanceEnabled
       - amPmBalanceEnabled
       - fixedSlotRuleEnabled
+      - fixedSlots
       - version
     Teacher:
       type: object
@@ -5125,7 +5336,7 @@ components:
           $ref: '#/components/schemas/VenueType'
         capacity:
           type: integer
-          minimum: 0
+          minimum: 1
         status:
           $ref: '#/components/schemas/VenueStatus'
         version:
@@ -5150,9 +5361,7 @@ components:
           type: string
           format: uuid
         venueId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         classIds:
           type: array
@@ -5161,7 +5370,14 @@ components:
             format: uuid
         periodConstraint:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            slots:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slot'
+          required:
+          - slots
         version:
           type: integer
           minimum: 1
@@ -5169,6 +5385,7 @@ components:
       - combinedClassId
       - name
       - teacherId
+      - venueId
       - classIds
       - periodConstraint
       - version
@@ -5348,6 +5565,8 @@ components:
           type:
           - integer
           - 'null'
+        weekParity:
+          $ref: '#/components/schemas/WeekParity'
         ruleId:
           type:
           - string
@@ -5359,13 +5578,22 @@ components:
           additionalProperties: true
         suggestion:
           type: string
+        ignorable:
+          type: boolean
+        ignoreBlockedReason:
+          type:
+          - string
+          - 'null'
         resolution:
           $ref: '#/components/schemas/ConflictResolution'
       required:
       - conflictId
       - planId
       - conflictType
+      - weekParity
       - suggestion
+      - ignorable
+      - ignoreBlockedReason
       - resolution
     UnscheduledLesson:
       type: object
@@ -5585,15 +5813,17 @@ components:
           $ref: '#/components/schemas/OperationModule'
         action:
           type: string
+          description: 中文动作，如「发布」「保存调课」；不得写错误码或英文枚举
         content:
           type: string
+          description: 中文可读摘要；不得写错误码或英文枚举
         targetType:
           type: string
+          description: 业务对象类型；七类关键操作必须可定位到具体对象
         targetId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
+          description: 业务对象 UUID；七类关键操作不得为空
         requestId:
           type:
           - string
@@ -5609,6 +5839,7 @@ components:
       - action
       - content
       - targetType
+      - targetId
       - createdAt
     SemesterArchive:
       type: object
@@ -5629,8 +5860,7 @@ components:
           type: string
           format: date-time
         summary:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/SemesterArchiveSummary'
       required:
       - archiveId
       - semesterId
@@ -5638,6 +5868,50 @@ components:
       - archivedBy
       - archivedAt
       - summary
+    SemesterArchiveSummary:
+      type: object
+      properties:
+        semesterName:
+          type: string
+        academicYear:
+          type: string
+        term:
+          $ref: '#/components/schemas/Term'
+        planName:
+          type: string
+        planVersion:
+          type: integer
+          minimum: 0
+        publishedAt:
+          type: string
+          format: date-time
+        classCount:
+          type: integer
+          minimum: 0
+        lessonCount:
+          type: integer
+          minimum: 0
+        unscheduledCount:
+          type: integer
+          minimum: 0
+        conflictCount:
+          type: integer
+          minimum: 0
+        snapshotHash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      required:
+      - semesterName
+      - academicYear
+      - term
+      - planName
+      - planVersion
+      - publishedAt
+      - classCount
+      - lessonCount
+      - unscheduledCount
+      - conflictCount
+      - snapshotHash
     ArchiveStatus:
       type: object
       properties:
@@ -5655,6 +5929,10 @@ components:
           - string
           - 'null'
           format: uuid
+        publishedPlanName:
+          type:
+          - string
+          - 'null'
       required:
       - semesterId
       - canArchive
@@ -5672,10 +5950,16 @@ components:
           type:
           - string
           - 'null'
+        code:
+          $ref: '#/components/schemas/ImportErrorCode'
+        severity:
+          $ref: '#/components/schemas/ImportIssueSeverity'
         message:
           type: string
       required:
       - rowNo
+      - code
+      - severity
       - message
     ImportBatch:
       type: object
@@ -5705,6 +5989,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ImportError'
+        errorsTruncated:
+          type: boolean
         operatorId:
           type: string
           format: uuid
@@ -5727,9 +6013,11 @@ components:
       - failed
       - status
       - errors
+      - errorsTruncated
       - operatorId
       - operatorName
       - createdAt
+      - errorReportUrl
     ImportPreview:
       type: object
       properties:
@@ -5739,9 +6027,17 @@ components:
             type: string
         rows:
           type: array
+          maxItems: 20
           items:
             type: array
             items: {}
+        totalRows:
+          type: integer
+          minimum: 0
+        previewLimit:
+          type: integer
+          enum:
+          - 20
         headerErrors:
           type: array
           items:
@@ -5749,7 +6045,33 @@ components:
       required:
       - headers
       - rows
+      - totalRows
+      - previewLimit
       - headerErrors
+    PrintMargins:
+      type: object
+      properties:
+        top:
+          type: integer
+          minimum: 0
+          maximum: 50
+        right:
+          type: integer
+          minimum: 0
+          maximum: 50
+        bottom:
+          type: integer
+          minimum: 0
+          maximum: 50
+        left:
+          type: integer
+          minimum: 0
+          maximum: 50
+      required:
+      - top
+      - right
+      - bottom
+      - left
     PrintTemplate:
       type: object
       properties:
@@ -5758,42 +6080,36 @@ components:
           format: uuid
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         paperSize:
           $ref: '#/components/schemas/PrintPaperSize'
         orientation:
           $ref: '#/components/schemas/PrintOrientation'
         marginMm:
-          type: object
-          properties:
-            top:
-              type: integer
-            right:
-              type: integer
-            bottom:
-              type: integer
-            left:
-              type: integer
-          required:
-          - top
-          - right
-          - bottom
-          - left
+          $ref: '#/components/schemas/PrintMargins'
         title:
           type:
           - string
           - 'null'
+          maxLength: 200
         logoDataUri:
           type:
           - string
           - 'null'
+          pattern: '^data:image/png;base64,'
+          maxLength: 2796226
+          description: PNG data URI only; decoded bytes <= 2 MiB; SVG and remote URLs are rejected
         headerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         footerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         isPreset:
           type: boolean
         version:
@@ -5830,7 +6146,7 @@ components:
       type: object
       properties:
         dimension:
-          type: string
+          $ref: '#/components/schemas/ExportDimension'
         columns:
           type: array
           items:
@@ -5843,10 +6159,34 @@ components:
               order:
                 type: integer
                 minimum: 1
+              sheetKey:
+                type: string
+              sheetName:
+                type: string
+                maxLength: 31
+              valueType:
+                type: string
+                enum:
+                - STRING
+                - DATE
+                - TIME
+                - NUMBER
+                - BOOLEAN
+                - ENUM
+              format:
+                type:
+                - string
+                - 'null'
+              nullable:
+                type: boolean
             required:
             - key
             - label
             - order
+            - sheetKey
+            - sheetName
+            - valueType
+            - nullable
       required:
       - dimension
       - columns
@@ -6209,6 +6549,10 @@ components:
         fixedSlotRuleEnabled:
           type: boolean
           default: false
+        fixedSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
         version:
           type: integer
           minimum: 0
@@ -6345,7 +6689,7 @@ components:
           $ref: '#/components/schemas/VenueType'
         capacity:
           type: integer
-          minimum: 0
+          minimum: 1
         status:
           $ref: '#/components/schemas/VenueStatus'
       required:
@@ -6361,7 +6705,7 @@ components:
           $ref: '#/components/schemas/VenueType'
         capacity:
           type: integer
-          minimum: 0
+          minimum: 1
         status:
           $ref: '#/components/schemas/VenueStatus'
         version:
@@ -6378,9 +6722,7 @@ components:
           type: string
           format: uuid
         venueId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         classIds:
           type: array
@@ -6390,10 +6732,18 @@ components:
           minItems: 2
         periodConstraint:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            slots:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slot'
+          required:
+          - slots
       required:
       - name
       - teacherId
+      - venueId
       - classIds
     CombinedClassUpdateRequest:
       type: object
@@ -6404,9 +6754,7 @@ components:
           type: string
           format: uuid
         venueId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         classIds:
           type: array
@@ -6416,7 +6764,14 @@ components:
           minItems: 2
         periodConstraint:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            slots:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slot'
+          required:
+          - slots
         version:
           type: integer
           minimum: 1
@@ -6502,9 +6857,15 @@ components:
     GeneratePlanRequest:
       type: object
       properties:
+        version:
+          type: integer
+          minimum: 0
         preserveLocked:
           type: boolean
-      required: []
+          default: true
+      required:
+      - version
+      - preserveLocked
     SaveAsPlanRequest:
       type: object
       properties:
@@ -6527,6 +6888,14 @@ components:
       required:
       - version
       - confirmOverwrite
+    PlanVersionRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - version
     MoveOperation:
       type: object
       properties:
@@ -6576,6 +6945,9 @@ components:
         unitId:
           type: string
           format: uuid
+        confirm:
+          type: boolean
+          description: 前端二次确认后必须为 true；否则零写入
         operations:
           type: array
           items:
@@ -6584,6 +6956,7 @@ components:
       required:
       - version
       - unitId
+      - confirm
       - operations
     AdjustmentUndoRequest:
       type: object
@@ -6600,6 +6973,9 @@ components:
     LessonCreateRequest:
       type: object
       properties:
+        version:
+          type: integer
+          minimum: 0
         weekday:
           type: integer
           minimum: 1
@@ -6631,6 +7007,7 @@ components:
             format: uuid
           minItems: 1
       required:
+      - version
       - weekday
       - period
       - weekParity
@@ -6673,13 +7050,19 @@ components:
       properties:
         draftResolution:
           type: string
+          description: SAVE 保留所选草稿，DISCARD 删除所选草稿，CANCEL 零写入
           enum:
           - SAVE
           - DISCARD
           - CANCEL
+        draftPlanId:
+          type: string
+          format: uuid
+          description: 当前编辑草稿；存在多个 DRAFT 时必填
         planVersion:
           type: integer
           minimum: 0
+          description: SAVE/DISCARD 时校验所选草稿版本
       required: []
     UserCreateRequest:
       type: object
@@ -6699,6 +7082,7 @@ components:
           type:
           - string
           - 'null'
+          description: V1.0 不启用；初始密码由服务端随机生成并仅返回一次
       required:
       - username
       - displayName
@@ -6730,6 +7114,26 @@ components:
       required:
       - role
       - version
+    UserVersionRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - version
+    BatchProvisionRequest:
+      type: object
+      properties:
+        teacherIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+      required:
+      - teacherIds
     ResetPasswordRequest:
       type: object
       properties: {}
@@ -6739,38 +7143,29 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         paperSize:
           $ref: '#/components/schemas/PrintPaperSize'
         orientation:
           $ref: '#/components/schemas/PrintOrientation'
         marginMm:
-          type: object
-          properties:
-            top:
-              type: integer
-            right:
-              type: integer
-            bottom:
-              type: integer
-            left:
-              type: integer
-          required:
-          - top
-          - right
-          - bottom
-          - left
+          $ref: '#/components/schemas/PrintMargins'
         title:
           type:
           - string
           - 'null'
+          maxLength: 200
         headerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         footerText:
           type:
           - string
           - 'null'
+          maxLength: 500
       required:
       - name
       - paperSize
@@ -6781,38 +7176,29 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         paperSize:
           $ref: '#/components/schemas/PrintPaperSize'
         orientation:
           $ref: '#/components/schemas/PrintOrientation'
         marginMm:
-          type: object
-          properties:
-            top:
-              type: integer
-            right:
-              type: integer
-            bottom:
-              type: integer
-            left:
-              type: integer
-          required:
-          - top
-          - right
-          - bottom
-          - left
+          $ref: '#/components/schemas/PrintMargins'
         title:
           type:
           - string
           - 'null'
+          maxLength: 200
         headerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         footerText:
           type:
           - string
           - 'null'
+          maxLength: 500
         version:
           type: integer
           minimum: 0
@@ -6825,11 +7211,9 @@ components:
           type: string
           format: uuid
         dimension:
-          $ref: '#/components/schemas/TimetableDimension'
+          $ref: '#/components/schemas/PrintDimension'
         objectId:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
         semesterId:
           type: string
@@ -6839,6 +7223,7 @@ components:
       required:
       - templateId
       - dimension
+      - objectId
       - semesterId
       - parity
     ExportRequest:
@@ -7596,6 +7981,14 @@ components:
               - string
               - 'null'
               format: uuid
+            weekCount:
+              type: integer
+              minimum: 1
+            message:
+              type:
+              - string
+              - 'null'
+              description: 无 PUBLISHED 方案时为“请先发布课表”
           required:
           - items
           - scope
@@ -7682,13 +8075,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     TooLarge:
-      description: 上传文件超过 20 MB
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    ImportRowError:
-      description: 导入数据行校验失败
+      description: 上传文件超过端点上限（导入 20 MB；校徽 2 MiB）
       content:
         application/json:
           schema:
@@ -7728,9 +8115,15 @@ components:
             type: string
             format: binary
     PdfFile:
-      description: PDF 文件
+      description: PDF 文件；预预览与打印对同一 renderKey 返回完全相同的字节
       content:
         application/pdf:
           schema:
             type: string
             format: binary
+    ProtectedHtml:
+      description: 一次性打印 HTML（仅内联 CSS/字体/data URI 校徽）
+      content:
+        text/html:
+          schema:
+            type: string

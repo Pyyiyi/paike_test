@@ -59,9 +59,9 @@ ops=[]
 for path,item in openapi['paths'].items():
     for method,op in item.items():
         if method in ('get','post','patch','put','delete'): ops.append((method.upper(),path,op))
-check(len(ops)==114,'expected 114 OpenAPI operations, got %d'%len(ops))
+check(len(ops)==115,'expected 115 OpenAPI operations, got %d'%len(ops))
 phase=Counter(op.get('x-phase') for _,_,op in ops)
-check(dict(phase)=={'P0':6,'P1':50,'P2':27,'P3':31},'unexpected phase operation counts: '+str(dict(phase)))
+check(dict(phase)=={'P0':6,'P1':50,'P2':27,'P3':32},'unexpected phase operation counts: '+str(dict(phase)))
 ids=[op.get('operationId') for _,_,op in ops]
 check(len(ids)==len(set(ids)),'duplicate operationId')
 check(all(op.get('tags') for _,_,op in ops),'operation missing tag')
@@ -84,7 +84,7 @@ for method,path,op in ops:
         for status in ('400','401','403','500'):
             check(status in responses,'operation missing %s error: %s %s'%(status,method,path))
         if method!='GET': check('409' in responses,'write missing 409: %s %s'%(method,path))
-add('OpenAPI inventory','114 operations; phase counts %s; refs=%d; unresolved=0'%(dict(phase),len(refs)))
+add('OpenAPI inventory','115 operations; phase counts %s; refs=%d; unresolved=0'%(dict(phase),len(refs)))
 
 # Enum parity: naming -> OpenAPI -> DDL
 schemas=openapi['components']['schemas']
@@ -216,7 +216,7 @@ add('route/role parity','%d contract routes; %d navigation rows; %d permission r
 
 # Events expected inventory and dependency-graph topology
 required_events={
- 'bc.registry.semester.created','bc.registry.semester.status-changed','bc.registry.schedule-template.version-created','bc.registry.grade.created','bc.registry.class.created','bc.registry.subject.rule-configured',
+ 'bc.registry.semester.created','bc.registry.semester.status-changed','bc.registry.semester.current-changed','bc.registry.schedule-template.version-created','bc.registry.grade.created','bc.registry.class.created','bc.registry.subject.rule-configured',
  'bc.resource.teacher.created','bc.resource.teacher.deactivated','bc.resource.assignment.configured','bc.resource.venue.created','bc.resource.combined-class.configured','bc.resource.walking-group.configured','bc.resource.teacher.account-provisioned',
  'bc.timetable.plan.generated','bc.timetable.plan.published','bc.timetable.plan.archived','bc.timetable.lesson.moved','bc.timetable.conflict.ignored-once',
  'bc.governance.operation.logged','bc.identity.user.created','bc.identity.user.disabled','bc.identity.user.role-changed',
@@ -242,7 +242,7 @@ for name,item in dg_events.items():
         ce=contract_events[name]
         check(ce['producer']['context']==item['producer'],'event producer conflict: '+name)
         check({c['context'] for c in ce['consumers']}==set(item.get('consumers',[])),'event consumers conflict: '+name)
-add('event topology','25 unique events; dependency-graph subtree matches producer/consumer')
+add('event topology','26 unique events; dependency-graph subtree matches producer/consumer')
 
 # Cross-context write inventory
 cc=read(os.path.join(C,'cross-context-writes.md'))

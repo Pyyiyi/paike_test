@@ -33,7 +33,7 @@
 | T1 单聚合本地事务 | 单上下文、单聚合主数据增删改 | 业务行 + 同一事务内的操作日志/安全审计 + outbox；失败全部回滚 |
 | T2 编排型强一致事务 | 学期存档、学期切换、教师退校联动、教师开通账号 | 由一个应用服务开启事务，顺序调用各域导出的 command/query service；任一失败整笔回滚 |
 | T3 引用检查 + 本地写入 | 删除保护、引用关系配置 | 先在同一事务内调用各域 query service 检查引用，再写本域；领域外键是最终完整性兜底 |
-| T4 逐行导入事务 | 批量导入 | 每个合法数据行使用独立事务写入目标上下文；批次进度单独提交；基础设施故障将批次标记 `FAILED`，不得声称整批成功 |
+| T4 导入批次事务 | 批量导入 | 先全量预校验；所有合法行、目标 outbox、批次终态、一次 `IMPORT` 日志与完成事件在同一事务提交；每个数据行用 savepoint 隔离业务校验错误；数据库/基础设施故障回滚全部合法行，再用独立补偿事务写 `FAILED` 批次 |
 | T5 只读编排 + 审计 | 导出、打印预览/渲染、课表视图、统计 | 读取各域 query service，不写业务表；导出/打印只写 `sys_audit_log`，打印模板维护按 T1 |
 
 所有写事务必须满足：
@@ -41,7 +41,7 @@
 1. 乐观锁失败时零业务写入、零业务日志、零 outbox。
 2. 操作日志与业务写入同事务；日志失败则业务回滚。
 3. outbox 与业务写入同事务；投递失败留在 outbox 重试，不回滚已提交业务。
-4. 批量调课、发布/覆盖、存档、切换、导入提交均遵守「整批全成或全不成」；导入按 T4 的行级边界例外。
+4. 批量调课、发布/覆盖、存档、切换、导入提交均遵守「整批全成或全不成」；导入的业务校验错误按行跳过，数据库/基础设施故障回滚全部合法行。
 
 ---
 
@@ -61,19 +61,19 @@
 | XW-10 | 批量开通教师账号 | identity | 每名教师一行 `sys_user`；`sys_audit_log`；`sys_outbox_event` | 批量读取 `resource.TeacherQueryService` | 每个成功账号一条 provisioned 事件 | 逐账号独立事务；失败账号不影响已成功账号；返回一次性凭据 CSV |
 | XW-11 | 停用/启用/重置密码/角色变更 | identity | `sys_user`、`sys_session`（撤销时）；`sys_audit_log`、`sys_outbox_event` | 角色变更时读取 resource 教师关联 | `bc.identity.user.disabled` / `bc.identity.user.role-changed` | T1/T2；最后一个启用 Admin 保护与不可停用自己先校验，失败零写入 |
 | XW-12 | 学期存档 | governance | `semester.status='ARCHIVED'`、当前 `timetable_plan.status='ARCHIVED'`、`semester_archive`、`operation_log`、`sys_outbox_event` | `registry.SemesterLifecycleService`、`timetable.PlanLifecycleService`、`timetable.PlanQueryService` | `bc.timetable.plan.archived`、`bc.registry.semester.status-changed` | T2；无 `PUBLISHED` 方案返回 409；学期、方案、存档、日志、outbox 同一事务 |
-| XW-13 | 切换当前学期：`DISCARD` | governance | 目标/旧 `semester.is_current`；删除未保存草稿（如有）；`operation_log`、`sys_outbox_event` | `timetable.PlanLifecycleService` 丢弃草稿；`registry.SemesterLifecycleService` 切换当前值 | 学期状态事件、操作日志 | T2；目标学期 `ARCHIVED` 或版本不符时整笔回滚 |
-| XW-14 | 切换当前学期：`SAVE` | governance | 草稿方案及课次/冲突结果、`semester.is_current`、`operation_log`、`sys_outbox_event` | `timetable.PlanLifecycleService` 校验 `planVersion` 并保存草稿后切换 | 学期状态事件、操作日志 | T2；草稿保存失败则不切换；同一事务先清旧 `is_current` 再设新值 |
-| XW-15 | 切换当前学期：`CANCEL` | governance | 无 | 仅检查草稿是否存在 | 无 | 返回 200 且零写入；不得创建日志或 outbox |
-| XW-16 | 生成/重新生成课表 | timetable | `timetable_plan` 结果字段、`lesson`、`lesson_class`、`unscheduled_lesson`、`conflict_detail`、`sys_outbox_event`；必要时 `operation_log` | registry/resource 的 query services 读取一次输入快照 | `bc.timetable.plan.generated` | T1；先替换旧结果再写入新结果，失败回滚到原方案；跨域依赖只读 |
+| XW-13 | 切换当前学期：`DISCARD` | governance | 目标/旧 `semester.is_current`；所选 DRAFT 逻辑删除；`operation_log`、`sys_outbox_event` | `timetable.PlanLifecycleService.discardDraft` 校验并删除所选草稿；`registry.SemesterLifecycleService.switchCurrent` 切换当前值 | `bc.registry.semester.current-changed`、操作日志 | T2；目标学期 `ARCHIVED`、版本不符或草稿非 DRAFT 时整笔回滚 |
+| XW-14 | 切换当前学期：`SAVE` | governance | `semester.is_current`、`operation_log`、`sys_outbox_event` | 客户端已先经 D05 保存草稿；`timetable.PlanQueryService` 校验所选 DRAFT 与 `planVersion`，`registry.SemesterLifecycleService.switchCurrent` 切换 | `bc.registry.semester.current-changed`、操作日志 | T2；草稿版本不符则不切换；同一事务先清旧 `is_current` 再设新值 |
+| XW-15 | 切换当前学期：`CANCEL` | governance | 无 | 只读检查目标学期、草稿与版本 | 无 | 返回 200 且零写入；不得创建/更新/删除日志、草稿或 outbox |
+| XW-16 | 生成/重新生成课表 | timetable | `timetable_plan` 结果字段、`lesson`、`lesson_class`、`unscheduled_lesson`、`conflict_detail`、`operation_log`、`sys_outbox_event` | registry/resource 的 query services 读取一次输入快照 | `bc.timetable.plan.generated` | T1；先替换旧结果再写入新结果，失败回滚到原方案；跨域依赖只读 |
 | XW-17 | 发布/覆盖发布 | timetable | 新方案 `PUBLISHED`；旧正式方案 `SUPERSEDED`；`operation_log`、`sys_outbox_event` | 查询学期未存档、当前正式方案 | `bc.timetable.plan.published`；操作日志 `PUBLISH` / `OVERWRITE` | T1；新旧两个方案状态在同一事务切换，任一失败全部回滚 |
 | XW-18 | 只本次忽略冲突 | timetable | `conflict_detail.resolution='IGNORED_ONCE'`、`timetable_plan.has_manual_exemption`、`conflict_ignore`、`operation_log`、`sys_outbox_event` | 无跨域写；读取冲突可归因配置 | `bc.timetable.conflict.ignored-once`；操作日志 | T1；不可忽略类型先拒绝，配置表零写入 |
 | XW-19 | 批量调课/撤销/重做 | timetable | `lesson`、`lesson_class`、`timetable_plan.version`、`adjustment_history`、`operation_log`、`sys_outbox_event` | 只读当前方案与锁定状态 | `bc.timetable.lesson.moved`；操作日志 `ADJUST` | T1；整批校验后写入；任一冲突、锁定或存档状态不满足则整组零写入 |
 | XW-20 | 预排课次/锁定/解锁 | timetable | `lesson`、`lesson_class`、`timetable_plan.version`、`operation_log` | 只读主数据与方案状态 | 操作日志 | T1；非草稿或锁定冲突时零写入 |
-| XW-21 | 导入单个合法数据行 | exchange → registry/resource | 目标上下文业务表、目标上下文 outbox；本行错误以批次进度记录 | 调用 registry/resource 对应应用服务；不允许直接 DML | `bc.exchange.import.completed` 在批次完成时一次发布 | T4；每行独立事务；重复键按非法行；未知列忽略；日志只在导入提交时写一次 `IMPORT` |
-| XW-22 | 导入批次收口 | exchange | `import_batch` 终态与错误摘要；`operation_log`；`sys_outbox_event` | 汇总逐行结果 | `bc.exchange.import.completed`；操作日志 `IMPORT` | 批次收口事务；基础设施故障时批次 `FAILED`，已成功行不回滚但明确返回部分结果 |
+| XW-21 | 导入合法数据行集合 | exchange → registry/resource | 目标上下文业务表、目标上下文 outbox、`import_batch` 终态；行错误汇总到批次 | 调用 registry/resource 对应应用服务；不允许直接 DML | `bc.exchange.import.completed` 在批次收口时一次发布 | T4；合法行同一事务提交，每行 savepoint 隔离业务错误；重复键按非法行；未知列忽略；日志只在导入提交时写一次 `IMPORT` |
+| XW-22 | 导入批次收口 | exchange | `import_batch` 终态与错误摘要；`operation_log`；`sys_outbox_event` | 汇总逐行结果 | `bc.exchange.import.completed`；操作日志 `IMPORT` | 批次收口与合法行业务写入同一事务；数据库/基础设施故障全部合法行回滚，再用补偿事务写 `FAILED` 批次 |
 | XW-23 | Excel 导出 | exchange | 仅 `sys_audit_log` | registry/resource/timetable/statistics query services | `bc.exchange.export.completed`（审计/通知） | T5；不写业务表、不写 `operation_log`；文件不落库 |
 | XW-24 | 打印模板维护 | exchange | `print_template`、`sys_audit_log`；必要时 `operation_log` | 无跨域写 | 安全审计 | T1；预设模板不可删；版本冲突零写入 |
-| XW-25 | 打印预览/渲染 | exchange | 仅 `sys_audit_log` | timetable/registry/statistics query services 读取同一数据源 | `bc.exchange.print.rendered` | T5；预览与 render 输出同一 PDF；一次性签名 token 60 秒 |
+| XW-25 | 打印预览/渲染 | exchange | 仅 `sys_audit_log` | timetable/registry/statistics query services 读取同一数据源 | `bc.exchange.print.rendered` | T5；预览与 render 按同一 renderKey 输出同一 PDF bytes；一次性 256-bit token 60 秒、仅存 SHA-256 |
 | XW-26 | 操作日志写入（全部关键操作） | 发起业务上下文 | `operation_log` | 经共享内核 `writeOperationLog`；governance 提供查询模型，不提供跨域写 repository | `bc.governance.operation.logged` | 与业务写入同事务；日志失败业务回滚 |
 | XW-27 | 安全审计写入（认证/账号/越权/导出/打印） | identity/shared | `sys_audit_log` | 共享内核 `writeSecurityAudit` | 无单独业务事件 | 与对应安全操作同事务或失败操作即时追加；追加写，无清理任务 |
 | XW-28 | 领域事件写入（所有生产者） | 各上下文 | `sys_outbox_event` | 无跨域命令 | 本文件 §3 各事件 | 与业务写入同事务；提交后 dispatcher 至少一次投递，消费者按 `eventId` 幂等 |
@@ -98,7 +98,7 @@
 
 ### 4.2 学期切换
 
-`SAVE`、`DISCARD`、`CANCEL` 三种分支必须在任何业务写入前确定。`CANCEL` 零写入；`SAVE` 的草稿版本校验与 `is_current` 切换同事务；`DISCARD` 的未保存草稿删除与切换同事务。
+`SAVE`、`DISCARD`、`CANCEL` 三种分支必须在任何业务写入前确定。服务端草稿指持久化 `DRAFT` 方案；`CANCEL` 零写入；`SAVE` 校验所选草稿与 `planVersion` 后保留草稿并切换；`DISCARD` 逻辑删除所选草稿并与 `is_current` 切换同事务。
 
 ### 4.3 教师账号联动
 
@@ -106,10 +106,12 @@
 
 ### 4.4 导入
 
-- 单行边界：一行合法数据的目标业务写入、目标 outbox（如有）与行结果共同提交。
-- 批次边界：批次终态、错误摘要、一次 `IMPORT` 操作日志和一次完成事件在收口事务中写入。
-- `PARTIAL` 表示部分行成功；`FAILED` 表示基础设施故障或文件级拒绝。
-- 超 5000 行或 20 MB 时文件级拒绝，零行写入。
+- 预校验边界：文件级上限、编码、表头与全量行业务校验先完成；此时零业务写入。
+- 单行边界：每行用 savepoint 调用目标领域应用服务；业务错误回滚到 savepoint 并记为 issue，其他合法行继续。
+- 批次边界：合法行业务写入、目标 outbox、批次终态、一次 `IMPORT` 操作日志和一次完成事件在同一事务提交。
+- 数据库/基础设施故障：回滚整个业务事务；随后用独立补偿事务写 `FAILED` 批次（`success=0`、`failed=total`），不得声称部分成功。
+- `COMPLETED` 表示全部行成功；`PARTIAL` 表示部分成功；`FAILED` 表示零成功（全部行非法或基础设施故障）。
+- 超 5000 行、>20 MB、缺必填列、空文件或非 UTF-8 文件级拒绝，零业务/批次写入；错误报告一次性下载。
 
 ### 4.5 删除保护
 

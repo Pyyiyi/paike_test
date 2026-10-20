@@ -213,6 +213,12 @@ events:
     payload: { semesterId, fromStatus, toStatus, occurredAt, occurredBy }
     card: D01
 
+  - name: bc.registry.semester.current-changed
+    producer: registry
+    consumers: [timetable, governance]
+    payload: { previousSemesterId, currentSemesterId, occurredAt, occurredBy }
+    card: D01 / D07
+
   - name: bc.registry.schedule-template.version-created
     producer: registry
     consumers: [timetable]
@@ -229,6 +235,24 @@ events:
     producer: identity
     consumers: [resource]
     payload: { teacherId, userId, username, occurredAt, occurredBy }
+    card: D08
+
+  - name: bc.identity.user.created
+    producer: identity
+    consumers: []
+    payload: { userId, username, role, occurredAt, occurredBy }
+    card: D08
+
+  - name: bc.identity.user.disabled
+    producer: identity
+    consumers: []
+    payload: { userId, username, reason, occurredAt, occurredBy }
+    card: D08
+
+  - name: bc.identity.user.role-changed
+    producer: identity
+    consumers: []
+    payload: { userId, fromRole, toRole, occurredAt, occurredBy }
     card: D08
 
   - name: bc.resource.teacher.deactivated

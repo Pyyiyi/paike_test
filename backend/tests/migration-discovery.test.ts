@@ -45,17 +45,25 @@ describe('migration discovery', () => {
     await expect(loadMigrationFiles(directory)).rejects.toBeInstanceOf(MigrationFileError);
   });
 
-  it('allows reserved numbering gaps while keeping order', async () => {
+  it('accepts reserved sequence gaps while preserving numeric order', async () => {
     const directory = await makeMigrationDir({
+      '0015_resource.sql': 'SELECT 15;',
       '0001_first.sql': 'SELECT 1;',
-      '0003_third.sql': 'SELECT 3;',
+      '0010_registry.sql': 'SELECT 10;',
     });
-
     const migrations = await loadMigrationFiles(directory);
     expect(migrations.map((migration) => migration.filename)).toEqual([
       '0001_first.sql',
-      '0003_third.sql',
+      '0010_registry.sql',
+      '0015_resource.sql',
     ]);
+  });
+
+  it('requires numbering to start at 0001', async () => {
+    const directory = await makeMigrationDir({
+      '0002_second.sql': 'SELECT 2;',
+    });
+    await expect(loadMigrationFiles(directory)).rejects.toThrow(/从 0001 开始/);
   });
 
   it('rejects duplicate sequence numbers', async () => {

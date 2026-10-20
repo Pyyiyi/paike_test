@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS sys_controlled_vocabulary (
   is_active      boolean     NOT NULL DEFAULT true,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_vocab_type CHECK (vocab_type IN ('SUBJECT', 'GRADE', 'VENUE', 'SUBJECT_SYNONYM')),
+  CONSTRAINT ck_vocab_type CHECK (vocab_type IN ('SUBJECT', 'GRADE', 'VENUE', 'SUBJECT_SYNONYM', 'COMBINED_CLASS', 'WALKING_GROUP')),
   CONSTRAINT ck_vocab_synonym CHECK (
     (vocab_type = 'SUBJECT_SYNONYM' AND synonym_of IS NOT NULL)
     OR (vocab_type <> 'SUBJECT_SYNONYM')
@@ -295,7 +295,7 @@ DO $$ BEGIN CREATE TYPE import_module AS ENUM ('SEMESTERS', 'GRADES', 'CLASSES',
 DO $$ BEGIN CREATE TYPE import_batch_status AS ENUM ('COMPLETED', 'PARTIAL', 'FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE export_dimension AS ENUM ('MASTER_DATA', 'TIMETABLE', 'STATISTICS'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE timetable_dimension AS ENUM ('CLASS', 'TEACHER', 'SCHOOL', 'VENUE', 'ASSIGNMENT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE operation_module AS ENUM ('DELETE', 'PUBLISH', 'OVERWRITE', 'SWITCH_SEMESTER', 'IMPORT', 'ARCHIVE', 'ADJUST'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE operation_module AS ENUM ('DELETE', 'PUBLISH', 'OVERWRITE', 'SWITCH_SEMESTER', 'IMPORT', 'ARCHIVE', 'ADJUST', 'GENERATE', 'SAVE_AS', 'IGNORE_ONCE', 'LOCK', 'UNLOCK'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE print_paper_size AS ENUM ('A4', 'A3'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE print_orientation AS ENUM ('PORTRAIT', 'LANDSCAPE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS venue (
   venue_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name            text NOT NULL,
   type            venue_type NOT NULL,
-  capacity        integer NOT NULL CHECK (capacity >= 0),
+  capacity        integer NOT NULL CHECK (capacity >= 1),
   status          venue_status NOT NULL DEFAULT 'AVAILABLE',
   version         integer NOT NULL DEFAULT 1,
   created_at      timestamptz NOT NULL DEFAULT now(),
@@ -442,25 +442,30 @@ CREATE TABLE IF NOT EXISTS subject_period_rule (
   period_balance_enabled     boolean NOT NULL DEFAULT false,
   am_pm_balance_enabled      boolean NOT NULL DEFAULT false,
   fixed_slot_rule_enabled    boolean NOT NULL DEFAULT false,
+  fixed_slots                jsonb NOT NULL DEFAULT '[]'::jsonb,
   version                    integer NOT NULL DEFAULT 1,
   created_at                 timestamptz NOT NULL DEFAULT now(),
   updated_at                 timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_subject_period_rule_forbidden_array CHECK (jsonb_typeof(forbidden_slots) = 'array')
+  CONSTRAINT ck_subject_period_rule_forbidden_array CHECK (jsonb_typeof(forbidden_slots) = 'array'),
+  CONSTRAINT ck_subject_period_rule_fixed_array CHECK (jsonb_typeof(fixed_slots) = 'array'),
+  CONSTRAINT ck_subject_period_rule_fixed_nonempty CHECK (NOT fixed_slot_rule_enabled OR jsonb_array_length(fixed_slots) > 0)
 );
 
 CREATE TABLE IF NOT EXISTS combined_class (
   combined_class_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name              text NOT NULL,
   teacher_id        uuid NOT NULL REFERENCES teacher(teacher_id),
-  venue_id          uuid NULL REFERENCES venue(venue_id),
-  period_constraint jsonb NOT NULL DEFAULT '{}'::jsonb,
+  venue_id          uuid NOT NULL REFERENCES venue(venue_id),
+  period_constraint jsonb NOT NULL DEFAULT '{"slots":[]}'::jsonb,
   version           integer NOT NULL DEFAULT 1,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
-  deleted_at        timestamptz NULL
+  deleted_at        timestamptz NULL,
+  CONSTRAINT ck_combined_period_object CHECK (jsonb_typeof(period_constraint) = 'object')
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_combined_class_name_active ON combined_class (lower(name)) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_combined_class_teacher ON combined_class (teacher_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_combined_class_venue ON combined_class (venue_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS combined_class_member (
   combined_class_id uuid NOT NULL REFERENCES combined_class(combined_class_id) ON DELETE CASCADE,
@@ -481,7 +486,9 @@ CREATE TABLE IF NOT EXISTS walking_group (
   updated_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_walking_group_name_active ON walking_group (lower(name)) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_walking_group_subject_teacher ON walking_group (subject_id, teacher_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_walking_group_venue ON walking_group (venue_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS walking_group_member (
   walking_group_id  uuid NOT NULL REFERENCES walking_group(walking_group_id) ON DELETE CASCADE,
@@ -526,27 +533,40 @@ CREATE TABLE IF NOT EXISTS timetable_plan (
   semester_id                  uuid NOT NULL REFERENCES semester(semester_id),
   name                         text NOT NULL,
   status                       plan_status NOT NULL DEFAULT 'DRAFT',
-  version                      integer NOT NULL DEFAULT 0,
+  source_plan_id               uuid NULL REFERENCES timetable_plan(plan_id),
+  version                      integer NOT NULL DEFAULT 0 CHECK (version >= 0),
+  generation_no                integer NOT NULL DEFAULT 0 CHECK (generation_no >= 0),
   schedule_template_version_id uuid NOT NULL REFERENCES schedule_template_version(version_id),
+  generation_seed              bigint NULL,
+  snapshot_hash                text NULL CHECK (snapshot_hash IS NULL OR snapshot_hash ~ '^[0-9a-f]{64}$'),
   conflict_count               integer NOT NULL DEFAULT 0 CHECK (conflict_count >= 0),
   unscheduled_count            integer NOT NULL DEFAULT 0 CHECK (unscheduled_count >= 0),
   duration_ms                  integer NULL CHECK (duration_ms >= 0),
   has_manual_exemption         boolean NOT NULL DEFAULT false,
   generated_at                 timestamptz NULL,
   generated_by                 uuid NULL REFERENCES sys_user(user_id),
+  published_at                 timestamptz NULL,
+  published_by                 uuid NULL REFERENCES sys_user(user_id),
+  superseded_at                timestamptz NULL,
+  archived_at                  timestamptz NULL,
   created_at                   timestamptz NOT NULL DEFAULT now(),
   updated_at                   timestamptz NOT NULL DEFAULT now(),
-  deleted_at                   timestamptz NULL
+  deleted_at                   timestamptz NULL,
+  CONSTRAINT ck_plan_name_nonempty CHECK (btrim(name) <> ''),
+  CONSTRAINT ck_plan_superseded_trace CHECK (status <> 'SUPERSEDED' OR superseded_at IS NOT NULL),
+  CONSTRAINT ck_plan_archived_trace CHECK (status <> 'ARCHIVED' OR archived_at IS NOT NULL)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_one_published
   ON timetable_plan (semester_id) WHERE status = 'PUBLISHED' AND deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_status ON timetable_plan (semester_id, status);
+CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_status ON timetable_plan (semester_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_timetable_plan_source ON timetable_plan (source_plan_id) WHERE source_plan_id IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_timetable_plan_semester_active ON timetable_plan (semester_id, updated_at DESC) WHERE deleted_at IS NULL AND status IN ('DRAFT', 'PUBLISHED');
 
 CREATE TABLE IF NOT EXISTS lesson (
   lesson_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id        uuid NOT NULL REFERENCES timetable_plan(plan_id) ON DELETE CASCADE,
   weekday        smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),
-  period         smallint NOT NULL CHECK (period >= 1),
+  period         smallint NOT NULL CHECK (period BETWEEN 1 AND 20),
   week_parity    week_parity NOT NULL DEFAULT 'ALL',
   subject_id     uuid NOT NULL REFERENCES subject(subject_id),
   teacher_id     uuid NOT NULL REFERENCES teacher(teacher_id),
@@ -554,12 +574,24 @@ CREATE TABLE IF NOT EXISTS lesson (
   unit_type      scheduling_unit_type NOT NULL,
   unit_id        uuid NOT NULL,
   locked         boolean NOT NULL DEFAULT false,
+  locked_at      timestamptz NULL,
+  locked_by      uuid NULL REFERENCES sys_user(user_id),
   created_at     timestamptz NOT NULL DEFAULT now(),
-  updated_at     timestamptz NOT NULL DEFAULT now()
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_lesson_lock_trace CHECK ((locked AND locked_at IS NOT NULL AND locked_by IS NOT NULL) OR (NOT locked AND locked_at IS NULL AND locked_by IS NULL))
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lesson_unit_slot ON lesson (plan_id, unit_type, unit_id, weekday, period, week_parity);
 CREATE INDEX IF NOT EXISTS idx_lesson_plan_weekday_period ON lesson (plan_id, weekday, period);
-CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher ON lesson (plan_id, teacher_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue ON lesson (plan_id, venue_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher ON lesson (plan_id, teacher_id, weekday, period);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue ON lesson (plan_id, venue_id, weekday, period) WHERE venue_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_locked ON lesson (plan_id, locked) WHERE locked;
+CREATE INDEX IF NOT EXISTS idx_lesson_unit ON lesson (unit_type, unit_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_parity_slot ON lesson (plan_id, week_parity, weekday, period);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_weekday_period_parity ON lesson (plan_id, weekday, period, week_parity);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_teacher_parity ON lesson (plan_id, teacher_id, weekday, period, week_parity);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_venue_parity ON lesson (plan_id, venue_id, weekday, period, week_parity) WHERE venue_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_unit_slot ON lesson (plan_id, unit_type, unit_id, weekday, period, week_parity);
+CREATE INDEX IF NOT EXISTS idx_lesson_plan_subject ON lesson (plan_id, subject_id);
 
 CREATE TABLE IF NOT EXISTS lesson_class (
   lesson_id  uuid NOT NULL REFERENCES lesson(lesson_id) ON DELETE CASCADE,
@@ -577,44 +609,66 @@ CREATE TABLE IF NOT EXISTS unscheduled_lesson (
   class_ids        uuid[] NOT NULL,
   subject_id       uuid NOT NULL REFERENCES subject(subject_id),
   teacher_id       uuid NOT NULL REFERENCES teacher(teacher_id),
-  required_periods integer NOT NULL CHECK (required_periods >= 0),
-  unplaced_periods integer NOT NULL CHECK (unplaced_periods >= 0),
+  required_periods integer NOT NULL CHECK (required_periods > 0),
+  unplaced_periods integer NOT NULL CHECK (unplaced_periods > 0),
   reason_code      unscheduled_reason NOT NULL,
-  reason_detail    text NOT NULL,
+  reason_detail    text NOT NULL CHECK (btrim(reason_detail) <> ''),
   suggested_actions jsonb NOT NULL,
+  source_config_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at       timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_unscheduled_actions_array CHECK (jsonb_typeof(suggested_actions) = 'array')
+  CONSTRAINT ck_unscheduled_class_ids_nonempty CHECK (cardinality(class_ids) > 0),
+  CONSTRAINT ck_unscheduled_unplaced_range CHECK (unplaced_periods <= required_periods),
+  CONSTRAINT ck_unscheduled_actions_array CHECK (jsonb_typeof(suggested_actions) = 'array' AND jsonb_array_length(suggested_actions) > 0),
+  CONSTRAINT ck_unscheduled_config_refs_array CHECK (jsonb_typeof(source_config_refs) = 'array')
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_unscheduled_plan_unit ON unscheduled_lesson (plan_id, unit_type, unit_id);
 CREATE INDEX IF NOT EXISTS idx_unscheduled_lesson_plan ON unscheduled_lesson (plan_id);
+CREATE INDEX IF NOT EXISTS idx_unscheduled_unit ON unscheduled_lesson (unit_type, unit_id);
 
 CREATE TABLE IF NOT EXISTS conflict_detail (
   conflict_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id      uuid NOT NULL REFERENCES timetable_plan(plan_id) ON DELETE CASCADE,
+  generation_no integer NOT NULL CHECK (generation_no >= 1),
+  fingerprint  text NOT NULL CHECK (fingerprint ~ '^[0-9a-f]{64}$'),
   lesson_id    uuid NULL REFERENCES lesson(lesson_id) ON DELETE SET NULL,
   conflict_type conflict_type NOT NULL,
   teacher_id   uuid NULL REFERENCES teacher(teacher_id),
   class_ids    uuid[] NULL,
   venue_id     uuid NULL REFERENCES venue(venue_id),
   weekday      smallint NULL CHECK (weekday BETWEEN 1 AND 7),
-  period       smallint NULL CHECK (period >= 1),
+  period       smallint NULL CHECK (period BETWEEN 1 AND 20),
+  week_parity  week_parity NOT NULL DEFAULT 'ALL',
   rule_id      text NULL,
   config_ref   jsonb NULL,
-  suggestion   text NOT NULL,
+  suggestion   text NOT NULL CHECK (btrim(suggestion) <> ''),
+  ignorable    boolean NOT NULL DEFAULT false,
+  ignore_blocked_reason text NULL,
   resolution   conflict_resolution NOT NULL DEFAULT 'UNRESOLVED',
-  created_at   timestamptz NOT NULL DEFAULT now()
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_conflict_ignore_block CHECK (NOT ignorable OR ignore_blocked_reason IS NULL)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_plan_generation_fingerprint ON conflict_detail (plan_id, generation_no, fingerprint);
 CREATE INDEX IF NOT EXISTS idx_conflict_detail_plan_resolution ON conflict_detail (plan_id, resolution);
+CREATE INDEX IF NOT EXISTS idx_conflict_detail_plan_slot ON conflict_detail (plan_id, weekday, period);
 
 CREATE TABLE IF NOT EXISTS conflict_ignore (
   ignore_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  plan_id     uuid NOT NULL REFERENCES timetable_plan(plan_id) ON DELETE CASCADE,
-  conflict_id uuid NULL REFERENCES conflict_detail(conflict_id) ON DELETE SET NULL,
+  plan_id     uuid NOT NULL REFERENCES timetable_plan(plan_id),
+  generation_no integer NOT NULL CHECK (generation_no >= 1),
+  conflict_id uuid NULL,
+  conflict_fingerprint text NOT NULL CHECK (conflict_fingerprint ~ '^[0-9a-f]{64}$'),
+  conflict_type conflict_type NOT NULL,
+  object_snapshot jsonb NOT NULL,
+  rule_id     text NULL,
+  config_ref  jsonb NULL,
   operator_id uuid NOT NULL REFERENCES sys_user(user_id),
-  reason      text NOT NULL,
+  reason      text NOT NULL CHECK (btrim(reason) <> ''),
   scope       text NOT NULL DEFAULT 'THIS_RUN' CHECK (scope = 'THIS_RUN'),
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_conflict_ignore_object CHECK (jsonb_typeof(object_snapshot) = 'object')
 );
-CREATE INDEX IF NOT EXISTS idx_conflict_ignore_plan ON conflict_ignore (plan_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_ignore_run_fingerprint ON conflict_ignore (plan_id, generation_no, conflict_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_conflict_ignore_plan ON conflict_ignore (plan_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS adjustment_history (
   history_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -624,10 +678,17 @@ CREATE TABLE IF NOT EXISTS adjustment_history (
   unit_id     uuid NOT NULL,
   operations  jsonb NOT NULL,
   action      adjustment_action NOT NULL CHECK (action IN ('APPLY', 'UNDO', 'REDO')),
+  version_before integer NOT NULL CHECK (version_before >= 0),
+  version_after  integer NOT NULL CHECK (version_after >= version_before),
   created_at  timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_adjustment_operations_array CHECK (jsonb_typeof(operations) = 'array')
+  CONSTRAINT ck_adjustment_session_nonempty CHECK (btrim(session_id) <> ''),
+  CONSTRAINT ck_adjustment_operations_array CHECK (jsonb_typeof(operations) = 'array' AND jsonb_array_length(operations) > 0)
 );
 CREATE INDEX IF NOT EXISTS idx_adjustment_history_scope ON adjustment_history (plan_id, operator_id, session_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_adjustment_history_plan_created ON adjustment_history (plan_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_adjustment_history_replay ON adjustment_history (plan_id, operator_id, session_id, unit_id, created_at DESC) INCLUDE (action, operations, version_before, version_after);
+CREATE INDEX IF NOT EXISTS idx_adjustment_history_action ON adjustment_history (plan_id, action, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_adjustment_history_apply_unit ON adjustment_history (plan_id, operator_id, session_id, unit_id) WHERE action = 'APPLY';
 
 -- =============================================================================
 -- Governance / Identity support / Exchange（Phase 3）
@@ -635,18 +696,20 @@ CREATE INDEX IF NOT EXISTS idx_adjustment_history_scope ON adjustment_history (p
 CREATE TABLE IF NOT EXISTS operation_log (
   log_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   operator_id   uuid NOT NULL REFERENCES sys_user(user_id),
-  operator_name text NOT NULL,
+  operator_name text NOT NULL CHECK (btrim(operator_name) <> ''),
   module        operation_module NOT NULL,
-  action        text NOT NULL,
-  content       text NOT NULL,
-  target_type   text NOT NULL,
-  target_id     uuid NULL,
+  action        text NOT NULL CHECK (btrim(action) <> ''),
+  content       text NOT NULL CHECK (btrim(content) <> ''),
+  target_type   text NOT NULL CHECK (btrim(target_type) <> ''),
+  target_id     uuid NOT NULL,
   request_id    text NULL,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_operation_log_operator_created ON operation_log (operator_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_operation_log_module_created ON operation_log (module, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log (created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_operator_created ON operation_log (operator_id, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_module_created ON operation_log (module, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_operator_module_created ON operation_log (operator_id, module, created_at DESC, log_id DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_target_created ON operation_log (target_type, target_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS semester_archive (
   archive_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -655,45 +718,159 @@ CREATE TABLE IF NOT EXISTS semester_archive (
   archived_by uuid NOT NULL REFERENCES sys_user(user_id),
   archived_at timestamptz NOT NULL DEFAULT now(),
   summary     jsonb NOT NULL,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_semester_archive_summary_object CHECK (jsonb_typeof(summary) = 'object'),
+  CONSTRAINT ck_semester_archive_summary_fields CHECK (
+    summary ? 'semesterName'
+    AND summary ? 'academicYear'
+    AND summary ? 'term'
+    AND summary ? 'planName'
+    AND summary ? 'planVersion'
+    AND summary ? 'publishedAt'
+    AND summary ? 'classCount'
+    AND summary ? 'lessonCount'
+    AND summary ? 'unscheduledCount'
+    AND summary ? 'conflictCount'
+    AND summary ? 'snapshotHash'
+  )
 );
+CREATE INDEX IF NOT EXISTS idx_semester_archive_archived_at
+  ON semester_archive (archived_at DESC, archive_id DESC);
 
 CREATE TABLE IF NOT EXISTS import_batch (
-  batch_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  module        import_module NOT NULL,
-  filename      text NOT NULL,
-  size_bytes    integer NOT NULL CHECK (size_bytes >= 0),
-  total         integer NOT NULL CHECK (total >= 0),
-  success       integer NOT NULL CHECK (success >= 0),
-  failed        integer NOT NULL CHECK (failed >= 0),
-  status        import_batch_status NOT NULL,
-  errors        jsonb NOT NULL DEFAULT '[]'::jsonb,
-  operator_id   uuid NOT NULL REFERENCES sys_user(user_id),
-  operator_name text NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now(),
+  batch_id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  module                     import_module NOT NULL,
+  filename                   text NOT NULL CHECK (btrim(filename) <> ''),
+  size_bytes                 integer NOT NULL CHECK (size_bytes >= 0),
+  total                      integer NOT NULL CHECK (total >= 0),
+  success                    integer NOT NULL CHECK (success >= 0),
+  failed                     integer NOT NULL CHECK (failed >= 0),
+  status                     import_batch_status NOT NULL,
+  errors                     jsonb NOT NULL DEFAULT '[]'::jsonb,
+  errors_truncated           boolean NOT NULL DEFAULT false,
+  error_report_url           text NULL,
+  error_report_downloaded_at timestamptz NULL,
+  operator_id                uuid NOT NULL REFERENCES sys_user(user_id),
+  operator_name              text NOT NULL,
+  created_at                 timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_import_batch_counts CHECK (total = success + failed),
-  CONSTRAINT ck_import_batch_errors_array CHECK (jsonb_typeof(errors) = 'array')
+  CONSTRAINT ck_import_batch_errors_array CHECK (jsonb_typeof(errors) = 'array'),
+  CONSTRAINT ck_import_batch_errors_limit CHECK (jsonb_array_length(errors) <= 1000),
+  CONSTRAINT ck_import_batch_status_counts CHECK (
+    (status = 'COMPLETED' AND failed = 0 AND success = total)
+    OR (status = 'PARTIAL' AND success > 0 AND failed > 0)
+    OR (status = 'FAILED' AND success = 0)
+  ),
+  CONSTRAINT ck_import_batch_report_pair CHECK (
+    (error_report_url IS NULL AND error_report_downloaded_at IS NULL)
+    OR (error_report_url IS NOT NULL)
+  )
 );
 CREATE INDEX IF NOT EXISTS idx_import_batch_created ON import_batch (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_batch_operator_created ON import_batch (operator_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_batch_status_created ON import_batch (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_batch_module_created ON import_batch (module, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS print_template (
-  template_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name         text NOT NULL UNIQUE,
-  paper_size   print_paper_size NOT NULL DEFAULT 'A4',
-  orientation  print_orientation NOT NULL DEFAULT 'LANDSCAPE',
-  margin_mm    jsonb NOT NULL,
-  title        text NULL,
-  logo_data_uri text NULL,
-  header_text  text NULL,
-  footer_text  text NULL,
-  is_preset    boolean NOT NULL DEFAULT false,
-  version      integer NOT NULL DEFAULT 0,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now(),
-  deleted_at   timestamptz NULL,
-  CONSTRAINT ck_print_template_margin_object CHECK (jsonb_typeof(margin_mm) = 'object')
+  template_id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name           text NOT NULL,
+  paper_size     print_paper_size NOT NULL DEFAULT 'A4',
+  orientation    print_orientation NOT NULL DEFAULT 'LANDSCAPE',
+  margin_mm      jsonb NOT NULL,
+  title          text NULL,
+  logo_data_uri  text NULL,
+  header_text    text NULL,
+  footer_text    text NULL,
+  is_preset      boolean NOT NULL DEFAULT false,
+  version        integer NOT NULL DEFAULT 0 CHECK (version >= 0),
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  deleted_at     timestamptz NULL,
+  CONSTRAINT ck_print_template_name_nonempty
+    CHECK (btrim(name) <> '' AND char_length(name) <= 100),
+  CONSTRAINT ck_print_template_margin_object
+    CHECK (jsonb_typeof(margin_mm) = 'object'),
+  CONSTRAINT ck_print_template_margin_keys
+    CHECK (
+      margin_mm ? 'top' AND margin_mm ? 'right' AND margin_mm ? 'bottom' AND margin_mm ? 'left'
+      AND (margin_mm - 'top' - 'right' - 'bottom' - 'left') = '{}'::jsonb
+    ),
+  CONSTRAINT ck_print_template_margin_numeric
+    CHECK (
+      jsonb_typeof(margin_mm->'top') = 'number'
+      AND jsonb_typeof(margin_mm->'right') = 'number'
+      AND jsonb_typeof(margin_mm->'bottom') = 'number'
+      AND jsonb_typeof(margin_mm->'left') = 'number'
+    ),
+  CONSTRAINT ck_print_template_margin_range
+    CHECK (
+      (margin_mm->>'top')::numeric BETWEEN 0 AND 50
+      AND (margin_mm->>'right')::numeric BETWEEN 0 AND 50
+      AND (margin_mm->>'bottom')::numeric BETWEEN 0 AND 50
+      AND (margin_mm->>'left')::numeric BETWEEN 0 AND 50
+    ),
+  CONSTRAINT ck_print_template_margin_fits_page
+    CHECK (
+      (margin_mm->>'left')::numeric + (margin_mm->>'right')::numeric
+        <= CASE
+             WHEN paper_size = 'A4' AND orientation = 'PORTRAIT' THEN 190
+             WHEN paper_size = 'A4' AND orientation = 'LANDSCAPE' THEN 277
+             WHEN paper_size = 'A3' AND orientation = 'PORTRAIT' THEN 277
+             ELSE 400
+           END
+      AND (margin_mm->>'top')::numeric + (margin_mm->>'bottom')::numeric
+        <= CASE
+             WHEN paper_size = 'A4' AND orientation = 'PORTRAIT' THEN 277
+             WHEN paper_size = 'A4' AND orientation = 'LANDSCAPE' THEN 190
+             WHEN paper_size = 'A3' AND orientation = 'PORTRAIT' THEN 400
+             ELSE 277
+           END
+    ),
+  CONSTRAINT ck_print_template_logo_png
+    CHECK (
+      logo_data_uri IS NULL
+      OR (
+        logo_data_uri LIKE 'data:image/png;base64,%'
+        AND char_length(logo_data_uri) <= 2796226
+      )
+    )
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_print_template_name_active ON print_template (lower(name)) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_print_template_name_active
+  ON print_template (lower(name)) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_print_template_preset
+  ON print_template (is_preset DESC, created_at, template_id) WHERE deleted_at IS NULL;
+
+CREATE OR REPLACE FUNCTION forbid_preset_print_template_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF OLD.is_preset THEN
+    IF TG_OP = 'DELETE' THEN
+      RAISE EXCEPTION 'preset print template cannot be deleted'
+        USING ERRCODE = '23514';
+    ELSIF NEW.deleted_at IS NOT NULL THEN
+      RAISE EXCEPTION 'preset print template cannot be deleted'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_print_template_preset_soft_delete ON print_template;
+CREATE TRIGGER trg_print_template_preset_soft_delete
+  BEFORE UPDATE OF deleted_at ON print_template
+  FOR EACH ROW EXECUTE FUNCTION forbid_preset_print_template_delete();
+
+DROP TRIGGER IF EXISTS trg_print_template_preset_hard_delete ON print_template;
+CREATE TRIGGER trg_print_template_preset_hard_delete
+  BEFORE DELETE ON print_template
+  FOR EACH ROW EXECUTE FUNCTION forbid_preset_print_template_delete();
 
 -- =============================================================================
 -- updated_at 触发器（仅可编辑表）
@@ -727,7 +904,7 @@ $$;
 DO $$
 DECLARE table_name text;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY['operation_log','conflict_ignore','adjustment_history','sys_audit_log']
+  FOREACH table_name IN ARRAY ARRAY['operation_log','semester_archive','conflict_ignore','adjustment_history','sys_audit_log']
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trg_%I_append_only ON %I', table_name, table_name);
     EXECUTE format('CREATE TRIGGER trg_%I_append_only BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation()', table_name, table_name);
@@ -738,7 +915,10 @@ COMMENT ON TABLE teacher IS '教师主数据；employee_no 是登录账号的唯
 COMMENT ON TABLE semester IS '学期；is_current 全校至多一个；存档后只读';
 COMMENT ON TABLE timetable_plan IS '排课方案；同一学期至多一个 PUBLISHED';
 COMMENT ON TABLE conflict_ignore IS 'D21 只本次忽略记录；不修改配置';
-COMMENT ON TABLE semester_archive IS '学期存档快照索引；一个学期只允许存档一次';
-COMMENT ON TABLE operation_log IS '七类关键操作日志；只追加，无更新/删除 API';
-COMMENT ON TABLE import_batch IS '导入批次；errors 最多保存 1000 条明细';
-COMMENT ON TABLE print_template IS '打印模板；预设模板不可删除';
+COMMENT ON TABLE semester_archive IS '学期存档摘要索引；一个学期只允许存档一次；摘要与触发追加写保护不可修改';
+COMMENT ON TABLE operation_log IS '关键操作与显式审计动作；只追加，无更新/删除 API，无清理任务';
+COMMENT ON TABLE import_batch IS '导入批次；errors 同时保存 ERROR/WARNING，最多 1000 条，failed 只统计行级 ERROR 的去重数据行';
+COMMENT ON TABLE print_template IS '打印模板；预设模板不可删除；模板编辑采用 version 乐观锁，逻辑删除后名称可复用';
+COMMENT ON COLUMN print_template.margin_mm IS '毫米整数对象 {top,right,bottom,left}；每边 0..50，扣除边距后至少保留 20mm 可打印区域';
+COMMENT ON COLUMN print_template.logo_data_uri IS '仅 PNG data URI；原始文件解码后 ≤2 MiB（2,097,152 bytes），禁止 SVG；实现层先验文件签名再入库';
+COMMENT ON COLUMN print_template.version IS '创建为 0；每次编辑或更换校徽后 version+1，PATCH 必须携带当前 version';

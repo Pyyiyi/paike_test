@@ -267,6 +267,66 @@ enums:
       VENUES: 场地
     sqlType: import_module
     rule: 数据库、API、前端三处拼写完全一致
+  import_issue_severity:
+    apiSchema: ImportIssueSeverity
+    values:
+    - ERROR
+    - WARNING
+    labels:
+      ERROR: 错误
+      WARNING: 警告
+    rule: API-only；ERROR 计入 failed 行，WARNING 不计入
+  import_error_code:
+    apiSchema: ImportErrorCode
+    values:
+    - REQUIRED_HEADER_MISSING
+    - DUPLICATE_HEADER
+    - UNKNOWN_COLUMN
+    - UNSUPPORTED_FORMAT
+    - UNSUPPORTED_ENCODING
+    - EMPTY_FILE
+    - PARSE_ERROR
+    - ROW_LIMIT_EXCEEDED
+    - FILE_TOO_LARGE
+    - REQUIRED_VALUE_MISSING
+    - INVALID_TYPE
+    - INVALID_FORMAT
+    - INVALID_ENUM
+    - INVALID_DATE
+    - VALUE_OUT_OF_RANGE
+    - REFERENCE_NOT_FOUND
+    - DUPLICATE_KEY
+    - CROSS_FIELD_INVALID
+    - INVALID_SLOT
+    - CONTROLLED_VOCABULARY_MISMATCH
+    - DATABASE_FAILURE
+    - TEMPLATE_NOT_FOUND
+    - ERROR_REPORT_CONSUMED
+    labels:
+      REQUIRED_HEADER_MISSING: 缺少必填列
+      DUPLICATE_HEADER: 表头重复
+      UNKNOWN_COLUMN: 未知列
+      UNSUPPORTED_FORMAT: 不支持的文件格式
+      UNSUPPORTED_ENCODING: 不支持的编码
+      EMPTY_FILE: 文件没有数据
+      PARSE_ERROR: 文件解析失败
+      ROW_LIMIT_EXCEEDED: 数据行超过上限
+      FILE_TOO_LARGE: 文件超过大小上限
+      REQUIRED_VALUE_MISSING: 必填项为空
+      INVALID_TYPE: 值类型不正确
+      INVALID_FORMAT: 值格式不正确
+      INVALID_ENUM: 值不在允许范围
+      INVALID_DATE: 日期格式不正确
+      VALUE_OUT_OF_RANGE: 值超出范围
+      REFERENCE_NOT_FOUND: 引用数据不存在
+      DUPLICATE_KEY: 数据已存在
+      CROSS_FIELD_INVALID: 字段组合不合法
+      INVALID_SLOT: 时段格式不正确
+      CONTROLLED_VOCABULARY_MISMATCH: 名称不在受控词表
+      DATABASE_FAILURE: 数据库写入失败
+      TEMPLATE_NOT_FOUND: 模板不存在
+      ERROR_REPORT_CONSUMED: 错误报告已下载
+    rule: API-only；键与 OpenAPI ImportErrorCode 完全一致
   import_batch_status:
     apiSchema: ImportBatchStatus
     values:
@@ -317,6 +377,11 @@ enums:
     - IMPORT
     - ARCHIVE
     - ADJUST
+    - GENERATE
+    - SAVE_AS
+    - IGNORE_ONCE
+    - LOCK
+    - UNLOCK
     labels:
       DELETE: 删除
       PUBLISH: 发布
@@ -325,6 +390,11 @@ enums:
       IMPORT: 导入
       ARCHIVE: 存档
       ADJUST: 调课
+      GENERATE: 生成排课
+      SAVE_AS: 另存方案
+      IGNORE_ONCE: 只本次忽略
+      LOCK: 锁定课次
+      UNLOCK: 解锁课次
     sqlType: operation_module
     rule: 数据库、API、前端三处拼写完全一致
   print_paper_size:
@@ -347,6 +417,16 @@ enums:
       LANDSCAPE: 横向
     sqlType: print_orientation
     rule: 数据库、API、前端三处拼写完全一致
+  print_dimension:
+    apiSchema: PrintDimension
+    values:
+    - CLASS
+    - TEACHER
+    labels:
+      CLASS: 班级课表
+      TEACHER: 教师课表
+    storage: API-only
+    rule: 打印模板 V1.0 只支持班级/教师；由服务端校验，不是数据库枚举
   health_status:
     apiSchema: HealthStatus
     values:
@@ -511,6 +591,10 @@ fieldDictionary:
       dbColumn: teacher_id
       apiType: string
       nullable: true
+    teacherName:
+      dbColumn: teacher_name
+      apiType: string
+      nullable: true
     mustChangePassword:
       dbColumn: must_change_password
       apiType: boolean
@@ -519,6 +603,14 @@ fieldDictionary:
       dbColumn: status
       apiType: AccountStatus
       nullable: false
+    version:
+      dbColumn: version
+      apiType: integer
+      nullable: false
+    lastLoginAt:
+      dbColumn: last_login_at
+      apiType: string
+      nullable: true
   Semester:
     semesterId:
       dbColumn: semester_id
@@ -772,6 +864,10 @@ fieldDictionary:
       dbColumn: fixed_slot_rule_enabled
       apiType: boolean
       nullable: false
+    fixedSlots:
+      dbColumn: fixed_slots
+      apiType: array<Slot>
+      nullable: false
     version:
       dbColumn: version
       apiType: integer
@@ -887,11 +983,12 @@ fieldDictionary:
     venueId:
       dbColumn: venue_id
       apiType: string
-      nullable: true
+      nullable: false
     classIds:
       dbColumn: class_ids
       apiType: array<string>
       nullable: false
+      note: logical projection from combined_class_member; sorted UUIDs on read
     periodConstraint:
       dbColumn: period_constraint
       apiType: object
@@ -925,6 +1022,7 @@ fieldDictionary:
       dbColumn: class_ids
       apiType: array<string>
       nullable: false
+      note: logical projection from walking_group_member; sorted UUIDs on read
     version:
       dbColumn: version
       apiType: integer
@@ -1064,6 +1162,10 @@ fieldDictionary:
       dbColumn: period
       apiType: integer
       nullable: true
+    weekParity:
+      dbColumn: week_parity
+      apiType: WeekParity
+      nullable: false
     ruleId:
       dbColumn: rule_id
       apiType: string
@@ -1076,6 +1178,14 @@ fieldDictionary:
       dbColumn: suggestion
       apiType: string
       nullable: false
+    ignorable:
+      dbColumn: ignorable
+      apiType: boolean
+      nullable: false
+    ignoreBlockedReason:
+      dbColumn: ignore_blocked_reason
+      apiType: string
+      nullable: true
     resolution:
       dbColumn: resolution
       apiType: ConflictResolution
@@ -1341,6 +1451,10 @@ fieldDictionary:
       dbColumn: published_plan_id
       apiType: string
       nullable: true
+    publishedPlanName:
+      dbColumn: published_plan_name
+      apiType: string
+      nullable: true
   ControlledVocabulary:
     vocabId:
       dbColumn: vocab_id
@@ -1399,6 +1513,10 @@ fieldDictionary:
       dbColumn: errors
       apiType: array<ImportError>
       nullable: false
+    errorsTruncated:
+      dbColumn: errors_truncated
+      apiType: boolean
+      nullable: false
     operatorId:
       dbColumn: operator_id
       apiType: string
@@ -1428,6 +1546,14 @@ fieldDictionary:
       dbColumn: raw_value
       apiType: string
       nullable: true
+    code:
+      dbColumn: code
+      apiType: ImportErrorCode
+      nullable: false
+    severity:
+      dbColumn: severity
+      apiType: ImportIssueSeverity
+      nullable: false
     message:
       dbColumn: message
       apiType: string

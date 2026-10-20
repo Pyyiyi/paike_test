@@ -81,8 +81,9 @@
 | 变量 | 类型 | 默认 | 必须 | 说明 |
 |------|------|------|:----:|------|
 | `SCHEDULER_TIME_BUDGET_MS` | integer | `4500` | 否 | 引擎软时间预算（留 0.5s 给 IO） |
-| `SCHEDULER_MAX_BACKTRACK_STEPS` | integer | `200000` | 否 | 回溯步数上限 |
-| `SCHEDULER_DEFAULT_SEED` | integer | `20260901` | 否 | 缺省随机种子（保证确定性） |
+| `SCHEDULER_MAX_BACKTRACK_STEPS` | integer | `200000` | 否 | 全局回溯步数安全上限 |
+| `SCHEDULER_MAX_BACKTRACK_PER_UNIT` | integer | `200` | 否 | 单排课单元回退上限；超限后该项进入未排清单 |
+| `SCHEDULER_DEFAULT_SEED` | integer | `20260901` | 否 | 缺省固定种子基线；仅用于无派生材料的测试，不是随机数 |
 | `SCHEDULER_MAX_UNDO_STEPS` | integer | `50` | 否 | 撤销栈上限（A-15） |
 
 ### 2.7 性能基准（H-03）

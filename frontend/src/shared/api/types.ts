@@ -29,13 +29,57 @@ export interface Versioned {
 }
 
 export type SemesterStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'ENDED' | 'ARCHIVED';
+export type Term = 'FALL' | 'SPRING';
+export type TemplateStatus = 'ACTIVE' | 'RETIRED';
+export type CalendarExceptionType = 'STOP' | 'MAKEUP';
 
 export interface SemesterSummary extends Versioned {
   semesterId: string;
   name: string;
+  academicYear: string;
+  term: Term;
   status: SemesterStatus;
   startDate: string;
   endDate: string;
+  scheduleTemplateVersionId: string;
+  isCurrent: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Period {
+  periodNo: number;
+  startTime: string;
+  endTime: string;
+  label?: string | null;
+}
+
+export interface ScheduleTemplateVersion extends Versioned {
+  versionId: string;
+  templateId: string;
+  versionNo: number;
+  openWeekdays: number[];
+  periods: Period[];
+  status: TemplateStatus;
+  createdAt: string;
+}
+
+export interface ScheduleTemplate extends Versioned {
+  templateId: string;
+  name: string;
+  status: TemplateStatus;
+  latestVersionNo: number;
+  latestVersion?: ScheduleTemplateVersion;
+}
+
+export interface CalendarException extends Versioned {
+  exceptionId: string;
+  semesterId: string;
+  type: CalendarExceptionType;
+  startDate: string;
+  endDate: string;
+  makeupWeekday: number | null;
+  note: string | null;
 }
 
 export interface SelectOption<T = string> {

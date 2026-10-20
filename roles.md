@@ -123,11 +123,22 @@
 
 ## 7. 权限测试锚点
 
+完整 D08 清单见 `docs/knowledge/designs/D08-identity-user-provisioning.md` §8；本节保留跨卡锚点。
+
 | 测试用例 | 验证点 |
 |----------|--------|
+| TC-AU-004 | 用户 CRUD、角色分配、列表即时反映 |
 | TC-AU-007 | Teacher 直接访问管理页面/API 被拒绝，不能仅靠前端隐藏 |
 | TC-AU-008 | Admin 访问全部已定义功能不被拦截 |
+| TC-AU-009 | 一键开通账号权限边界自动为 Teacher |
 | TC-AT-003 | Teacher 仅可见本人与关联班级课表 |
 | TC-AT-004 | Teacher 导航不出现管理入口 |
 | TC-AT-009 | Teacher 空闲查询对象固定本人，越权请求 403 |
-| TC-AU-009 | 一键开通账号权限边界自动为 Teacher |
+| LG-P-01 | Teacher 访问 `/operation-logs`、`/operation-logs/:id`、`/semesters/:id/archive`、`/semesters/:id/switch`、`/archive-status` 均 403；Admin 可用 |
+| AU-P-01 | Teacher 访问 `/users`、`/users/:id`、角色/停用/启用/重置/开通/批量开通均 403 |
+| AU-P-02 | Teacher 访问 `/semesters`、`/timetable-plans`、`/grades`、`/subjects`、`/teachers`、`/venues`、`/operation-logs`、`/exports`、`/print-templates`、`/import` 均 403 |
+| AU-R-01 | 角色变更下一请求生效，无需重新登录 |
+| AU-R-02 | 停用账号后旧会话下一请求 401 |
+| AU-R-03 | 停用/降级最后一名启用 Admin 或停用自己返回 409 且状态不变 |
+| AU-D-01 | 教师开通唯一、重复开通 `alreadyExists=true`、初始密码仅返回一次 |
+| AU-D-02 | 教师退校联动停用账号；复职不自动启用 |

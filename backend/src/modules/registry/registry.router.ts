@@ -1,6 +1,15 @@
 import { Router } from 'express';
+import type { Pool } from 'pg';
 import { z } from 'zod';
-import type { AuthRuntime } from '../../shared/auth/runtime';
+import { validateBody } from '../../shared/validation/common';
+import { systemClock, type Clock } from '../../shared/time/clock';
+import { createSemesterSchema, updateSemesterSchema } from './dto/semester.schema';
+import {
+  calendarExceptionSchema,
+  createScheduleTemplateSchema,
+  createScheduleTemplateVersionSchema,
+} from './dto/schedule-template.schema';
+import { createRegistryController } from './registry.controller';
 import type { ModuleRouterContext } from '../router-contract';
 import { requireAdmin, requireAuth } from '../../shared/auth/rbac';
 import { ValidationError } from '../../shared/errors/app-error';
@@ -58,9 +67,10 @@ function actorOf(request: { currentUser?: { userId: string } | null }): { userId
   return { userId: request.currentUser?.userId ?? '' };
 }
 
-export function createRegistryRouter(runtime: AuthRuntime): Router {
+export function createRegistryRouter(pool: Pool, clock: Clock = systemClock): Router {
   const router = Router();
-  const ctx: RegistryContext = { pool: runtime.pool };
+  const ctx: RegistryContext = { pool, clock };
+  const controller = createRegistryController(pool, clock);
 
   router.use(['/grades', '/classes', '/subjects', '/controlled-vocabularies'], requireAuth, requireAdmin);
 
@@ -228,6 +238,69 @@ export function createRegistryRouter(runtime: AuthRuntime): Router {
     }),
   );
 
+  router.get('/semesters', requireAdmin, asyncHandler(controller.listSemesters));
+  router.get('/semesters/current', requireAdmin, asyncHandler(controller.getCurrentSemester));
+  router.post(
+    '/semesters',
+    requireAdmin,
+    validateBody(createSemesterSchema),
+    asyncHandler(controller.createSemester),
+  );
+  router.patch(
+    '/semesters/:id',
+    requireAdmin,
+    validateBody(updateSemesterSchema),
+    asyncHandler(controller.updateSemester),
+  );
+  router.delete('/semesters/:id', requireAdmin, asyncHandler(controller.deleteSemester));
+
+  router.get(
+    '/semesters/:id/calendar-exceptions',
+    requireAdmin,
+    asyncHandler(controller.listCalendarExceptions),
+  );
+  router.post(
+    '/semesters/:id/calendar-exceptions',
+    requireAdmin,
+    validateBody(calendarExceptionSchema),
+    asyncHandler(controller.createCalendarException),
+  );
+  router.delete(
+    '/semesters/:id/calendar-exceptions/:exceptionId',
+    requireAdmin,
+    asyncHandler(controller.deleteCalendarException),
+  );
+
+  router.get('/schedule-templates', requireAdmin, asyncHandler(controller.listScheduleTemplates));
+  router.post(
+    '/schedule-templates',
+    requireAdmin,
+    validateBody(createScheduleTemplateSchema),
+    asyncHandler(controller.createScheduleTemplate),
+  );
+  router.get(
+    '/schedule-templates/versions/:versionId',
+    requireAdmin,
+    asyncHandler(controller.getScheduleTemplateVersion),
+  );
+  router.post(
+    '/schedule-templates/versions/:versionId/validate',
+    requireAdmin,
+    asyncHandler(controller.validateScheduleTemplateVersion),
+  );
+  router.delete('/schedule-templates/:id', requireAdmin, asyncHandler(controller.deleteScheduleTemplate));
+  router.get(
+    '/schedule-templates/:id/versions',
+    requireAdmin,
+    asyncHandler(controller.listScheduleTemplateVersions),
+  );
+  router.post(
+    '/schedule-templates/:id/versions',
+    requireAdmin,
+    validateBody(createScheduleTemplateVersionSchema),
+    asyncHandler(controller.createScheduleTemplateVersion),
+  );
+
   return router;
 }
 
@@ -235,5 +308,5 @@ export function createRouter(context: ModuleRouterContext): Router | null {
   if (!context.auth) {
     return null;
   }
-  return createRegistryRouter(context.auth);
+  return createRegistryRouter(context.auth.pool, context.clock ?? systemClock);
 }

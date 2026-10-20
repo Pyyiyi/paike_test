@@ -157,3 +157,28 @@ export const WEEK_PARITY_LABELS = {
   ODD: '单周',
   EVEN: '双周',
 } as const;
+
+export const TERM_LABELS = {
+  FALL: '秋季学期',
+  SPRING: '春季学期',
+} as const;
+
+export const TEMPLATE_STATUS_LABELS = {
+  ACTIVE: '启用',
+  RETIRED: '停用',
+} as const;
+
+export const CALENDAR_EXCEPTION_LABELS = {
+  STOP: '停课',
+  MAKEUP: '调休上课',
+} as const;
+
+export const WEEKDAY_LABELS: Record<number, string> = {
+  1: '周一',
+  2: '周二',
+  3: '周三',
+  4: '周四',
+  5: '周五',
+  6: '周六',
+  7: '周日',
+};

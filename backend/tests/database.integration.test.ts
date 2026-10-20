@@ -154,7 +154,7 @@ describeWithDatabase('shared database and migrations', () => {
     await adminPool.end();
   });
 
-  it('applies migrations to an empty schema and creates the frozen shared tables', async () => {
+  it('applies all pending migrations to an empty schema and creates the frozen tables', async () => {
     const messages: string[] = [];
     const result = await runMigrations({
       pool,
@@ -162,11 +162,9 @@ describeWithDatabase('shared database and migrations', () => {
       logger: { info: (message) => messages.push(message) },
     });
 
+    const pendingMigrations = await loadMigrationFiles(migrationsDir);
     expect(result.applied.map((migration) => migration.filename)).toEqual(
-      expect.arrayContaining([
-        '0001_create_shared_tables.sql',
-        '0002_create_updated_at_trigger.sql',
-      ]),
+      pendingMigrations.map((migration) => migration.filename),
     );
     expect(result.skipped).toBe(0);
     expect(messages.some((message) => message.includes('迁移完成'))).toBe(true);
@@ -179,9 +177,15 @@ describeWithDatabase('shared database and migrations', () => {
       [schema],
     );
     const tableNames = tables.rows.map((row) => row.table_name);
-    for (const table of sharedTables) {
-      expect(tableNames).toContain(table);
-    }
+    expect(tableNames.filter((name) => sharedTables.includes(name))).toEqual(sharedTables);
+    expect(tableNames).toEqual(
+      expect.arrayContaining([
+        'semester',
+        'schedule_template',
+        'schedule_template_version',
+        'calendar_exception',
+      ]),
+    );
 
     const columns = await pool.query<{ table_name: string; column_name: string }>(
       `SELECT table_name, column_name
@@ -220,9 +224,10 @@ describeWithDatabase('shared database and migrations', () => {
       [schema],
     );
     const triggerTables = triggers.rows.map((row) => row.table_name);
-    for (const table of sharedTables) {
-      expect(triggerTables).toContain(table);
-    }
+    expect(triggerTables.filter((name) => sharedTables.includes(name))).toEqual(sharedTables);
+    expect(triggerTables).toEqual(
+      expect.arrayContaining(['schedule_template', 'semester', 'calendar_exception']),
+    );
 
     const functionExists = await pool.query<{ exists: boolean }>(
       `SELECT EXISTS (
@@ -263,8 +268,10 @@ describeWithDatabase('shared database and migrations', () => {
       logger: { info: (message) => messages.push(message) },
     });
 
+    const diskMigrations = await loadMigrationFiles(migrationsDir);
     expect(result.applied).toEqual([]);
-    expect(result.skipped).toBe(result.total);
+    expect(result.skipped).toBe(diskMigrations.length);
+    expect(result.total).toBe(diskMigrations.length);
     expect(messages).toContain('无待执行迁移');
 
     const after = await pool.query<{ count: string }>(
@@ -277,7 +284,7 @@ describeWithDatabase('shared database and migrations', () => {
     const ledgerCount = await pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM sys_migration',
     );
-    expect(ledgerCount.rows[0]?.count).toBe(String(result.total));
+    expect(ledgerCount.rows[0]?.count).toBe(String(diskMigrations.length));
   });
 
   it('updates updated_at through the trigger', async () => {
@@ -387,12 +394,12 @@ describeWithDatabase('shared database and migrations', () => {
         runMigrations({ pool: racePool, migrationsDir }),
         runMigrations({ pool: racePool, migrationsDir }),
       ]);
-      const total = results[0]?.total ?? 0;
-      expect(results.map((result) => result.applied.length).sort()).toEqual([0, total]);
+      const diskMigrations = await loadMigrationFiles(migrationsDir);
+      expect(results.map((result) => result.applied.length).sort()).toEqual([0, diskMigrations.length]);
       const ledger = await racePool.query<{ count: string }>(
         'SELECT count(*)::text AS count FROM sys_migration',
       );
-      expect(ledger.rows[0]?.count).toBe(String(total));
+      expect(ledger.rows[0]?.count).toBe(String(diskMigrations.length));
     } finally {
       await racePool.end();
       await adminPool.query(`DROP SCHEMA IF EXISTS "${raceSchema}" CASCADE`);

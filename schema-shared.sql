@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS sys_controlled_vocabulary (
   is_active      boolean     NOT NULL DEFAULT true,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ck_vocab_type CHECK (vocab_type IN ('SUBJECT', 'GRADE', 'VENUE', 'SUBJECT_SYNONYM')),
+  CONSTRAINT ck_vocab_type CHECK (vocab_type IN ('SUBJECT', 'GRADE', 'VENUE', 'SUBJECT_SYNONYM', 'COMBINED_CLASS', 'WALKING_GROUP')),
   CONSTRAINT ck_vocab_synonym CHECK (
     (vocab_type = 'SUBJECT_SYNONYM' AND synonym_of IS NOT NULL)
     OR (vocab_type <> 'SUBJECT_SYNONYM')

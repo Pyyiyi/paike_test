@@ -36,14 +36,14 @@ const D15_TABLES = [
 ] as const;
 
 const D15_DOMAIN_DDL = `
-CREATE TABLE schedule_template (
+CREATE TABLE IF NOT EXISTS schedule_template (
   template_id uuid PRIMARY KEY,
   name text NOT NULL UNIQUE,
   status text NOT NULL,
   latest_version_no integer NOT NULL
 );
 
-CREATE TABLE schedule_template_version (
+CREATE TABLE IF NOT EXISTS schedule_template_version (
   version_id uuid PRIMARY KEY,
   template_id uuid NOT NULL REFERENCES schedule_template(template_id),
   version_no integer NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE schedule_template_version (
   UNIQUE (template_id, version_no)
 );
 
-CREATE TABLE semester (
+CREATE TABLE IF NOT EXISTS semester (
   semester_id uuid PRIMARY KEY,
   name text NOT NULL,
   academic_year text NOT NULL,
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS subject (
   name text NOT NULL UNIQUE
 );
 
-CREATE TABLE teacher (
+CREATE TABLE IF NOT EXISTS teacher (
   teacher_id uuid PRIMARY KEY,
   employee_no text NOT NULL UNIQUE,
   name text NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE teacher (
   status text NOT NULL
 );
 
-CREATE TABLE venue (
+CREATE TABLE IF NOT EXISTS venue (
   venue_id uuid PRIMARY KEY,
   name text NOT NULL UNIQUE,
   type text NOT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE venue (
   status text NOT NULL
 );
 
-CREATE TABLE teaching_assignment (
+CREATE TABLE IF NOT EXISTS teaching_assignment (
   assignment_id uuid PRIMARY KEY,
   teacher_id uuid NOT NULL REFERENCES teacher(teacher_id),
   subject_id uuid NOT NULL REFERENCES subject(subject_id),

@@ -66,6 +66,7 @@ subject_period_rule (
   forbidden_slots jsonb, time_slot_preference time_slot_preference_enum,
   period_balance_enabled boolean, am_pm_balance_enabled boolean,
   fixed_slot_rule_enabled boolean,
+  fixed_slots jsonb,                 -- H10 允许时段；启用固定规则时非空
   version int, updated_at
 )
 ```
@@ -228,7 +229,14 @@ walking_group_member (walking_group_id uuid, class_id uuid, primary key (walking
 | GET | `/venues` | 列表 |
 | POST | `/venues` | 新增（受控名称、类型二值） |
 | PATCH | `/venues/:id` | 编辑 |
-| DELETE | `/venues/:id` | 引用保护 |
+| DELETE | `/venues/:id` | 引用保护；课次/合班/走班/任课引用返回 `REFERENCE_PROTECTED` |
+
+校验：
+
+- `name` 命中运行期 `VENUE` 受控词表，归一化后未删除记录内唯一；重名 `409 DUPLICATE`。
+- `type` 只允许 `CLASSROOM` / `FUNCTION_ROOM`；第三值 `400 VALIDATION_ERROR`。
+- `capacity >= 1`；`status` 只允许 `AVAILABLE` / `UNAVAILABLE`。
+- 编辑必须携带 `version`；删除不提供版本参数。
 
 ### 3.7 合班 / 走班（D04）
 
@@ -241,7 +249,13 @@ walking_group_member (walking_group_id uuid, class_id uuid, primary key (walking
 | GET | `/walking-groups` | 列表 |
 | POST | `/walking-groups` | 新增 |
 | PATCH | `/walking-groups/:id` | 编辑 |
-| DELETE | `/walking-groups/:id` | 删除 |
+| DELETE | `/walking-groups/:id` | 引用保护；排课方案引用返回 `REFERENCE_PROTECTED` |
+
+合班字段：`name`、`teacherId`、`venueId`、`classIds`、`periodConstraint`、`version`。名称命中 `COMBINED_CLASS` 受控词表；至少 2 个不同且存在的班级；教师在职、场地存在；`periodConstraint` 规范化为 `{ slots: Slot[] }`。合班不持久化 `subjectId`（A-04）。
+
+走班字段：`name`、`subjectId`、`teacherId`、`venueId`、`classIds`、`version`。名称命中 `WALKING_GROUP` 受控词表；科目、教师、目标场地必填且存在；成员班级非空、不重复。
+
+删除被 `lesson` 或 `unscheduled_lesson` 的 `unit_type + unit_id` 引用的合班/走班返回 `409 REFERENCE_PROTECTED`。D05 快照字段见 `docs/knowledge/scheduling-unit-contract.md`。
 
 ---
 

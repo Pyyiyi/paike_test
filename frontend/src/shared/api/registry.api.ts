@@ -1,6 +1,12 @@
 import { http } from './http';
 import type { PageData } from './types';
 
+export interface RegistryRow extends Record<string, unknown> {
+  classId?: string;
+  subjectId?: string;
+  name?: string;
+}
+
 export interface Grade {
   gradeId: string;
   name: string;
@@ -9,7 +15,7 @@ export interface Grade {
   version: number;
 }
 
-export interface ClassItem {
+export interface ClassItem extends RegistryRow {
   classId: string;
   gradeId: string;
   name: string;
@@ -40,7 +46,7 @@ export interface SubjectPeriodRule {
   version: number;
 }
 
-export interface Subject {
+export interface Subject extends RegistryRow {
   subjectId: string;
   name: string;
   periodRule: SubjectPeriodRule | null;

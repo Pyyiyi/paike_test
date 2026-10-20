@@ -194,6 +194,8 @@ PRINT_BASE_URL=http://localhost:3000
 | `docs/trace/runs/v1/agent_plane.md` | 卡片规划、差距报告、校验清单、依赖图 |
 | `docs/trace/runs/v1/issues.yaml` | 首轮全部开发卡片 |
 | `docs/trace/runs/v1/test-results/` | 逐卡片测试案例对比验证（设计态，未执行） |
+| `docs/trace/runs/v1/delivery-checklist.md` | INT-03 交付清单、核对结果与偏差说明（子技能、孤儿、应用模块） |
+| `docs/knowledge/designs/INT-01-integration-acceptance.md` | 跨卡端到端验收清单、固定锚点、七组脚本契约与缺陷回派矩阵（设计态，未执行） |
 | `conventions.md` | 9 类跨卡片共享技术约定 + 枚举速查 |
 | `schema-shared.sql` | 8 张共享基础设施表 |
 | `seed-anchors.sql` | 跨域共享测试数据锚点 |
@@ -205,9 +207,15 @@ PRINT_BASE_URL=http://localhost:3000
 | `docs/knowledge/dependency-graph.yaml` | 域依赖拓扑 |
 | `docs/knowledge/shared-kernel-api.md` | 共享内核 API |
 | `docs/knowledge/module-template.md` | 模块骨架模板 |
-| `docs/knowledge/designs/` | 领域卡设计说明（含 D03 教师/任课/账号联动） |
+| `docs/knowledge/designs/` | 领域卡设计说明（含 D03 教师/任课、D05 排课引擎与 D15、D07 治理日志/存档/切换） |
 | `docs/knowledge/phase-contracts/` | 各 Phase 契约摘要 |
 
 ## 9. 本轮状态
 
-Phase 0 已进入实现阶段；逐卡片执行结果与验证证据记录在 `docs/trace/runs/v1/test-results/`。设计与 Issue 拆解基准仍以 `docs/trace/runs/v1/` 为准。
+本轮（INT-03 状态刷新与交付确认）只做状态与文档核对，不修改业务设计、不执行测试。
+
+- 设计与卡片基准：`docs/trace/runs/v1/`；`issues.yaml` 22 张卡保持 `design`，无 `in_progress`/`done` 卡片状态。
+- 测试对比：22 份 `test-results/{card-id}.md` 齐全；每份文件的设计态结论统一标记 `执行状态：未执行`，不声称任何测试通过。
+- 基线说明：`origin/main` 的部分 `test-results` 另含后续实现/静态验证记录（例如 D01、P0-01、P0-08）；这些记录原样保留，属于后续轮次证据，不是本卡的设计态执行结论。
+- 交付核对：核对清单、偏差与下一轮入口见 `docs/trace/runs/v1/delivery-checklist.md`。
+- 输入：`input/` 未修改。
